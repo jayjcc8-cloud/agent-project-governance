@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.2",
+  "authority": {
+    "task_source": "spec-kit",
+    "runtime_copies_tasks": false
+  },
+  "runtime": {
+    "directory": ".agent-runtime",
+    "git_tracked": false
+  },
+  "hooks": {
+    "mode": "advisory"
+  },
+  "dependencies": {
+    "spec_kit": "external",
+    "superpowers": "external",
+    "speckit_superpowers_bridge": "external"
+  }
+}

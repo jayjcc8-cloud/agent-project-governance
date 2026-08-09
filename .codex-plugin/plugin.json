@@ -1,23 +1,25 @@
 {
   "name": "agent-project-governance",
-  "version": "0.1.0",
-  "description": "Experimental checkpoint and resume governance for isolated AI work units",
+  "version": "0.2.0",
+  "description": "Bootstrap and govern isolated AI work units without creating a second plan",
   "author": {
     "name": "Agent Project Governance contributors"
   },
+  "homepage": "https://github.com/jayjcc8-cloud/agent-project-governance",
+  "repository": "https://github.com/jayjcc8-cloud/agent-project-governance",
   "license": "MIT",
   "keywords": ["ai-agents", "context", "checkpoint", "resume", "work-units"],
   "skills": "./skills/",
   "interface": {
     "displayName": "Agent Project Governance",
-    "shortDescription": "Checkpoint and resume isolated AI work units.",
-    "longDescription": "An intentionally small experiment for actor-scoped work units, durable checkpoints, and artifact-aware resume. It does not plan tasks or orchestrate implementation.",
+    "shortDescription": "Bootstrap, checkpoint, resume, and advise isolated AI work units.",
+    "longDescription": "A developer-preview governance layer for project bootstrap, actor-scoped work units, durable checkpoints, artifact-aware resume, and deterministic next-action advice. It does not own specifications, tasks, or implementation orchestration.",
     "developerName": "Agent Project Governance contributors",
     "category": "Productivity",
     "capabilities": ["Interactive", "Write"],
     "defaultPrompt": [
-      "Checkpoint this work unit before context changes.",
-      "Resume this work unit and verify its authority files."
+      "Inspect this project and preview its governance setup.",
+      "Resume this work unit and recommend the next safe action."
     ]
   }
 }

@@ -1,26 +1,26 @@
-# Runtime State Schema v0.1
+# Runtime State Schema v0.2
 
-`.agent-runtime/work-units/<work-unit-id>/state.json` is private, derived runtime memory. It is not a
-project plan and should be excluded from version control.
+`.agent-runtime/work-units/<work-unit-id>/state.json` is private derived memory, not a project plan. It must remain excluded from version control.
 
-Required top-level fields:
+Required fields:
 
-- `schema_version`: exactly `0.1`;
-- `work_unit_id`: stable ID for one coherent unit of work;
-- `actor_id`: exclusive owner such as `main`, `implementer-1`, or `reviewer-1`;
-- `parent_work_unit_id`: optional causal parent, never an ownership shortcut;
-- `status`: currently only `active`;
-- `created_at` and `updated_at`: UTC timestamps;
-- `authorities`: canonical file references with `kind`, project-relative `path`, and SHA-256 digest;
+- `schema_version`: `0.2`;
+- `revision`: positive monotonic integer for successful mutations;
+- `work_unit_id`, `actor_id`, and optional `parent_work_unit_id`;
+- `status`: `active` or `closed`;
+- `created_at`, `updated_at`, nullable `closed_at`, and nullable `close_summary`;
+- `authorities`: canonical project-relative paths with kind and SHA-256;
 - `checkpoint`: null or the latest durable checkpoint.
 
-A checkpoint contains a monotonic `sequence`, `recorded_at`, concise `summary`, one `next_action`,
-and bounded lists of `findings` and `failed_attempts`.
+A checkpoint contains a monotonic sequence, timestamp, concise summary, one next action, and bounded findings and failed attempts. Authority contents, task lists, decisions from `evaluate`, and chat transcripts are forbidden.
+
+Session bindings live under `.agent-runtime/session-bindings/<sha256>.json`. The filename hashes session and optional agent IDs. Bindings contain the exact work unit and actor and are not inherited by subagents.
 
 Invariants:
 
-1. Only the matching `actor_id` may checkpoint or resume a work unit.
-2. Authority contents are never copied into runtime state.
-3. Checkpoint refreshes authority hashes after confirming every authority still exists.
-4. Resume is read-only and reports whether current authority hashes match the checkpoint.
-5. State writes use a private temporary file, `fsync`, and atomic replacement.
+1. Only the matching actor may mutate, resume, evaluate, bind, or close a work unit.
+2. Checkpoint refreshes authority hashes only after every authority exists inside the project root.
+3. Resume and evaluate are read-only and tolerate valid v0.1 state.
+4. Migrate and the next checkpoint upgrade v0.1 atomically without losing fields.
+5. Close requires a checkpoint and unchanged authorities.
+6. Mutations use an exclusive short-lived lock, same-directory temporary file, file `fsync`, atomic replacement, and POSIX directory `fsync` where available.

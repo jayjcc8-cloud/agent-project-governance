@@ -1,0 +1,18 @@
+{
+  "schema_version": "0.2",
+  "spec_kit": {
+    "minimum": "0.8.10",
+    "verified": "0.11.1",
+    "install": "uv tool install specify-cli --from git+https://github.com/github/spec-kit.git@v0.11.1"
+  },
+  "superpowers": {
+    "minimum": "6.0.0",
+    "verified": "6.0.0",
+    "install_fallback": "codex plugin add superpowers@openai-curated"
+  },
+  "speckit_superpowers_bridge": {
+    "minimum": "1.1.0",
+    "verified": "1.1.0",
+    "install": "specify extension add speckit-superpowers-bridge --from https://github.com/lihan3238/speckit-superpowers-bridge/releases/download/v1.1.0/speckit-superpowers-bridge-v1.1.0.zip"
+  }
+}

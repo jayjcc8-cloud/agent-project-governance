@@ -1,31 +1,25 @@
 ---
 name: context-governance
-description: Checkpoint and resume actor-scoped AI work units without creating a second plan. Use for long-running coding tasks before compaction or context clearing, after a crash or new session, when main agents and subagents need isolated runtime memory, or when canonical task/spec files must be checked for changes before work resumes.
+description: Checkpoint, resume, evaluate, bind, migrate, and close actor-scoped AI work units without creating a second plan. Use for long-running coding tasks before compaction or handoff, after a crash or new session, when main agents and subagents need isolated runtime memory, when canonical spec/task files may have changed, or when deciding whether to continue, delegate, converge, promote durable knowledge, or start a new work unit.
 ---
 
 # Context Governance
 
-Keep runtime memory durable and isolated while leaving formal planning to the project's existing
-source of truth. Operate only on `.agent-runtime/work-units/`; never rewrite specs, plans, tasks,
-worktrees, or Agent instructions.
+Keep runtime memory durable and isolated while leaving formal planning and execution to the project's existing authorities.
 
 ## Boundaries
 
-- Treat existing `spec.md`, `plan.md`, `tasks.md`, issues, and equivalent artifacts as authorities.
-- Store only authority paths and hashes. Never copy their task lists or maintain competing status.
-- Require an explicit work-unit ID and actor ID. Never reuse the main agent's state for a subagent.
-- Recommend actions; do not spawn agents, create threads/worktrees, compact context, or change specs.
-- Do not install Spec Kit, Superpowers, bridges, or other workflow frameworks.
+- Treat existing constitution, spec, plan, `tasks.md`, issues, and ADRs as authorities.
+- Store only authority paths and hashes. Never copy their task lists or conversation transcripts.
+- Require explicit work-unit and actor IDs. Never reuse a main agent binding for a subagent.
+- Recommend actions; never spawn agents, create threads/worktrees, compact context, run converge, or change specifications.
+- Operate only on `.agent-runtime/`.
 
 ## Workflow
 
-Use `scripts/work_unit.py` for all state reads and writes. Run it with the Python available in the
-environment and pass the user's project root explicitly.
+Use `scripts/work_unit.py` for every runtime read and write. Pass the project root explicitly.
 
-### Start an isolated work unit
-
-Choose a stable work-unit ID and an actor ID describing the actual owner. Add only canonical files as
-authorities.
+### Initialize
 
 ```bash
 python scripts/work_unit.py init \
@@ -35,30 +29,19 @@ python scripts/work_unit.py init \
   --authority tasks specs/001-feature/tasks.md
 ```
 
-Use a distinct ID for every subagent or reviewer, optionally linking it with `--parent-work-unit`.
+Use a distinct work unit and actor for every subagent or reviewer. Add `--parent-work-unit` only as causal metadata.
 
-### Checkpoint before context changes
-
-Record only durable facts: what was verified, failed attempts worth avoiding, and the single next
-action. Do not transcribe the conversation or invent new tasks.
+### Checkpoint and resume
 
 ```bash
 python scripts/work_unit.py checkpoint \
   --project-root /path/to/project \
   --work-unit feature-001 \
   --actor main \
-  --summary "Adapter contract tests pass; integration test remains." \
-  --next-action "Run the pinned bridge smoke test." \
-  --finding "Spec Kit tasks.md remains authoritative." \
-  --failed-attempt "Do not enable global planning hooks for subagents."
-```
+  --summary "Contract tests pass; integration remains." \
+  --next-action "Run the pinned integration smoke test." \
+  --finding "Spec Kit tasks.md remains authoritative."
 
-### Resume after a new session or crash
-
-Resume with the same actor ID. Use `--strict` when changed or missing authority files must block
-automatic continuation.
-
-```bash
 python scripts/work_unit.py resume \
   --project-root /path/to/project \
   --work-unit feature-001 \
@@ -66,11 +49,37 @@ python scripts/work_unit.py resume \
   --strict
 ```
 
-Read the returned checkpoint and authority status. If an authority changed, reconcile it before
-continuing. Never overwrite the authority from runtime state.
+Reconcile changed authorities before continuing. A read-only resume never upgrades legacy state.
 
-## State contract
+### Evaluate the next governance action
 
-Read [references/state-schema.md](references/state-schema.md) only when changing the script, adding a
-consumer, or diagnosing incompatible state. The experiment intentionally supports only `init`,
-`checkpoint`, and `resume`.
+```bash
+python scripts/work_unit.py evaluate \
+  --project-root /path/to/project \
+  --work-unit feature-001 \
+  --actor main \
+  --event pre-compact \
+  --signal repeated-failure
+```
+
+Treat `primary_action` and `recommendations` as advisory. Read [references/decision-rules.md](references/decision-rules.md) only when changing or diagnosing rule behavior.
+
+### Bind a Codex session
+
+When a SessionStart hook supplies a session ID, bind it only after selecting the correct work unit:
+
+```bash
+python scripts/work_unit.py bind \
+  --project-root /path/to/project \
+  --work-unit feature-001 \
+  --actor main \
+  --session SESSION_ID
+```
+
+For a subagent, also pass its `--agent-id` and use a distinct actor/work unit. Use `unbind` with the same identifiers to remove a binding.
+
+### Migrate or close
+
+Use `migrate` for an explicit v0.1 → v0.2 upgrade. `checkpoint` also upgrades legacy state after validation. Use `close --summary ...` only after a current checkpoint; close refuses authority drift and removes matching session bindings.
+
+Read [references/state-schema.md](references/state-schema.md) only when changing the script, adding a consumer, or diagnosing incompatible state.

@@ -1,0 +1,61 @@
+{
+  "description": "Advisory context governance lifecycle reminders.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\"",
+            "statusMessage": "Checking context governance state",
+            "additionalContextLimit": 1500
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\"",
+            "statusMessage": "Checking checkpoint readiness"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\"",
+            "additionalContextLimit": 1500
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

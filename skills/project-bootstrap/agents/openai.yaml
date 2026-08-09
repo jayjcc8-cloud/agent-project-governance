@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Bootstrap"
+  short_description: "Inspect and establish project governance safely"
+  default_prompt: "Use $project-bootstrap to inspect this repository and preview the governance files it needs."
