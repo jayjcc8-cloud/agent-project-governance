@@ -1,0 +1,23 @@
+{
+  "name": "agent-project-governance",
+  "version": "0.1.0",
+  "description": "Experimental checkpoint and resume governance for isolated AI work units",
+  "author": {
+    "name": "Agent Project Governance contributors"
+  },
+  "license": "MIT",
+  "keywords": ["ai-agents", "context", "checkpoint", "resume", "work-units"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Agent Project Governance",
+    "shortDescription": "Checkpoint and resume isolated AI work units.",
+    "longDescription": "An intentionally small experiment for actor-scoped work units, durable checkpoints, and artifact-aware resume. It does not plan tasks or orchestrate implementation.",
+    "developerName": "Agent Project Governance contributors",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "defaultPrompt": [
+      "Checkpoint this work unit before context changes.",
+      "Resume this work unit and verify its authority files."
+    ]
+  }
+}

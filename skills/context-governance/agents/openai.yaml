@@ -1,0 +1,4 @@
+interface:
+  display_name: "Context Governance"
+  short_description: "Checkpoint and resume isolated AI work units"
+  default_prompt: "Use $context-governance to checkpoint or resume this work unit safely."
