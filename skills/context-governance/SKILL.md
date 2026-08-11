@@ -1,6 +1,6 @@
 ---
 name: context-governance
-description: Checkpoint, resume, evaluate, bind, migrate, and close actor-scoped AI work units without creating a second plan. Use for long-running coding tasks before compaction or handoff, after a crash or new session, when main agents and subagents need isolated runtime memory, when canonical spec/task files may have changed, or when deciding whether to continue, delegate, converge, promote durable knowledge, or start a new work unit.
+description: Checkpoint, resume, evaluate, bind, migrate, and close actor-scoped AI work units without creating a second plan. Use for long-running coding tasks before compaction or handoff, after a crash or new session, when main agents and subagents need isolated runtime memory, when canonical local files or GitHub Issues/PRs may have changed, or when deciding whether to continue, delegate, converge, promote durable knowledge, or start a new work unit.
 ---
 
 # Context Governance
@@ -10,7 +10,7 @@ Keep runtime memory durable and isolated while leaving formal planning and execu
 ## Boundaries
 
 - Treat existing constitution, spec, plan, `tasks.md`, issues, and ADRs as authorities.
-- Store only authority paths and hashes. Never copy their task lists or conversation transcripts.
+- Store only local authority paths or canonical GitHub identifiers and hashes. Never copy authority contents, task lists, or conversation transcripts.
 - Require explicit work-unit and actor IDs. Never reuse a main agent binding for a subagent.
 - Recommend actions; never spawn agents, create threads/worktrees, compact context, run converge, or change specifications.
 - Operate only on `.agent-runtime/`.
@@ -27,6 +27,17 @@ python scripts/work_unit.py init \
   --work-unit feature-001 \
   --actor main \
   --authority tasks specs/001-feature/tasks.md
+```
+
+Add a GitHub Issue or PR authority only with its canonical public URL. The command uses authenticated `gh api` access, normalizes stable governance fields, and stores only the identifier and SHA-256:
+
+```bash
+python scripts/work_unit.py init \
+  --project-root /path/to/project \
+  --work-unit feature-001 \
+  --actor main \
+  --authority tasks specs/001-feature/tasks.md \
+  --github-authority issue https://github.com/OWNER/REPO/issues/123
 ```
 
 Use a distinct work unit and actor for every subagent or reviewer. Add `--parent-work-unit` only as causal metadata.
@@ -49,7 +60,7 @@ python scripts/work_unit.py resume \
   --strict
 ```
 
-Reconcile changed authorities before continuing. A read-only resume never upgrades legacy state.
+Reconcile changed authorities before continuing. Explicit resume and evaluate refresh GitHub evidence; advisory hooks never make network requests. A read-only resume never upgrades legacy state.
 
 ### Evaluate the next governance action
 
@@ -80,6 +91,6 @@ For a subagent, also pass its `--agent-id` and use a distinct actor/work unit. U
 
 ### Migrate or close
 
-Use `migrate` for an explicit v0.1 → v0.2 upgrade. `checkpoint` also upgrades legacy state after validation. Use `close --summary ...` only after a current checkpoint; close refuses authority drift and removes matching session bindings.
+Use `migrate` for an explicit v0.1/v0.2 → v0.3 upgrade. `checkpoint` also upgrades legacy state after validation. Use `close --summary ...` only after a current checkpoint; close refuses authority drift and removes matching session bindings.
 
 Read [references/state-schema.md](references/state-schema.md) only when changing the script, adding a consumer, or diagnosing incompatible state.

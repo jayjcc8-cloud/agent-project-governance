@@ -76,6 +76,15 @@ class BootstrapTests(unittest.TestCase):
             actions = {item["path"]: item["action"] for item in report["operations"]}
             self.assertEqual(actions["AGENTS.md"], "conflict")
             self.assertEqual(actions[".gitignore"], "conflict")
+            operations = {item["path"]: item for item in report["operations"]}
+            agents_advice = operations["AGENTS.md"]["reconciliation"]
+            self.assertEqual(agents_advice["strategy"], "manual_merge")
+            self.assertEqual(agents_advice["reason_code"], "USER_OWNED_AGENTS_DIFFERS")
+            self.assertGreater(len(agents_advice["missing_template_rules"]), 0)
+            self.assertEqual(
+                operations[".gitignore"]["reconciliation"],
+                {"strategy": "append_line_manually", "line": ".agent-runtime/"},
+            )
             self.assertEqual(agents.read_text(encoding="utf-8"), "user-owned\n")
             self.assertEqual(ignore.read_text(encoding="utf-8"), "build/\n")
 

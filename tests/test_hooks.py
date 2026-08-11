@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Union
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +16,7 @@ HOOKS_JSON = ROOT / "hooks" / "hooks.json"
 
 
 class HookTests(unittest.TestCase):
-    def run_hook(self, payload: dict[str, object] | str) -> subprocess.CompletedProcess[str]:
+    def run_hook(self, payload: Union[dict[str, object], str]) -> subprocess.CompletedProcess[str]:
         input_text = payload if isinstance(payload, str) else json.dumps(payload)
         return subprocess.run(
             [sys.executable, str(HOOK)],

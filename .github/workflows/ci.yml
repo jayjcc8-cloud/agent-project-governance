@@ -25,6 +25,12 @@ jobs:
           python -m py_compile
           skills/context-governance/scripts/work_unit.py
           skills/context-governance/scripts/hook_adapter.py
+          skills/context-governance/scripts/trial_summary.py
           skills/project-bootstrap/scripts/bootstrap.py
+          skills/project-bootstrap/scripts/compatibility_smoke.py
+          scripts/validate_package.py
+          scripts/package_release.py
       - name: Run tests
         run: python -m unittest discover -s tests -v
+      - name: Validate plugin package and Python 3.9 syntax
+        run: python scripts/validate_package.py

@@ -9,20 +9,25 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterator
+from typing import Any, Iterator, Optional
 
 
-SCHEMA_VERSION = "0.2"
-LEGACY_SCHEMA_VERSION = "0.1"
-SUPPORTED_SCHEMA_VERSIONS = {LEGACY_SCHEMA_VERSION, SCHEMA_VERSION}
+SCHEMA_VERSION = "0.3"
+LEGACY_SCHEMA_VERSIONS = {"0.1", "0.2"}
+SUPPORTED_SCHEMA_VERSIONS = LEGACY_SCHEMA_VERSIONS | {SCHEMA_VERSION}
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _DIGEST_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+_GITHUB_URL_PATTERN = re.compile(
+    r"^https://github\.com/(?P<owner>[A-Za-z0-9_.-]+)/"
+    r"(?P<repo>[A-Za-z0-9_.-]+)/(?P<resource>issues|pull)/(?P<number>[1-9][0-9]*)/?$"
+)
 _MAX_TEXT_LENGTH = 4096
 _MAX_LIST_ITEMS = 32
 _MAX_EXTERNAL_ID_LENGTH = 512
@@ -111,7 +116,7 @@ def _bounded_list(values: list[str], label: str) -> list[str]:
     return [_bounded_text(value, label) for value in values]
 
 
-def _timestamp(value: Any, label: str, *, nullable: bool = False) -> str | None:
+def _timestamp(value: Any, label: str, *, nullable: bool = False) -> Optional[str]:
     if value is None and nullable:
         return None
     if not isinstance(value, str) or not value:
@@ -138,13 +143,13 @@ def _unit_path(root: Path, work_unit_id: str) -> Path:
     return path
 
 
-def _binding_key(session_id: str, agent_id: str | None) -> str:
+def _binding_key(session_id: str, agent_id: Optional[str]) -> str:
     session = _external_identifier(session_id, "session ID")
     agent = _external_identifier(agent_id, "agent ID") if agent_id else ""
     return hashlib.sha256(f"{session}\0{agent}".encode("utf-8")).hexdigest()
 
 
-def _binding_path(root: Path, session_id: str, agent_id: str | None) -> Path:
+def _binding_path(root: Path, session_id: str, agent_id: Optional[str]) -> Path:
     return (
         root
         / ".agent-runtime"
@@ -186,6 +191,110 @@ def _authority(root: Path, kind: str, value: str) -> dict[str, str]:
         "path": path.relative_to(root).as_posix(),
         "sha256": _digest(path),
     }
+
+
+def _github_projection(payload: dict[str, Any], resource: str) -> dict[str, Any]:
+    labels = sorted(
+        str(item.get("name"))
+        for item in (payload.get("labels") or [])
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    )
+    assignees = sorted(
+        str(item.get("login"))
+        for item in (payload.get("assignees") or [])
+        if isinstance(item, dict) and isinstance(item.get("login"), str)
+    )
+    milestone_value = payload.get("milestone")
+    milestone = None
+    if isinstance(milestone_value, dict):
+        milestone = {
+            "number": milestone_value.get("number"),
+            "title": milestone_value.get("title"),
+            "state": milestone_value.get("state"),
+        }
+    projected: dict[str, Any] = {
+        "number": payload.get("number"),
+        "title": payload.get("title"),
+        "body": payload.get("body"),
+        "state": payload.get("state"),
+        "locked": payload.get("locked"),
+        "labels": labels,
+        "assignees": assignees,
+        "milestone": milestone,
+    }
+    if resource == "issue":
+        projected["state_reason"] = payload.get("state_reason")
+    else:
+        for name in ("base", "head"):
+            value = payload.get(name)
+            projected[name] = (
+                {"ref": value.get("ref"), "sha": value.get("sha")}
+                if isinstance(value, dict)
+                else None
+            )
+        projected["draft"] = payload.get("draft")
+        projected["merged_at"] = payload.get("merged_at")
+    return projected
+
+
+def _github_fetch(repository: str, resource: str, number: int) -> dict[str, Any]:
+    endpoint_resource = "issues" if resource == "issue" else "pulls"
+    endpoint = f"repos/{repository}/{endpoint_resource}/{number}"
+    try:
+        result = subprocess.run(
+            ["gh", "api", "--method", "GET", endpoint],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise GovernanceError(f"cannot read GitHub authority {repository}#{number}: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip() or f"gh exited {result.returncode}"
+        raise GovernanceError(f"cannot read GitHub authority {repository}#{number}: {detail}")
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise GovernanceError(f"GitHub authority returned invalid JSON: {repository}#{number}") from exc
+    if not isinstance(payload, dict):
+        raise GovernanceError(f"GitHub authority returned a non-object: {repository}#{number}")
+    return payload
+
+
+def _github_authority(kind: str, value: str) -> dict[str, Any]:
+    _identifier(kind, "authority kind")
+    match = _GITHUB_URL_PATTERN.fullmatch(value.strip())
+    if match is None:
+        raise GovernanceError(
+            "GitHub authority must be an https://github.com/OWNER/REPO/issues/N or /pull/N URL"
+        )
+    repository = f"{match.group('owner')}/{match.group('repo')}"
+    resource = "issue" if match.group("resource") == "issues" else "pull"
+    number = int(match.group("number"))
+    canonical_url = f"https://github.com/{repository}/{'issues' if resource == 'issue' else 'pull'}/{number}"
+    payload = _github_fetch(repository, resource, number)
+    if payload.get("number") != number:
+        raise GovernanceError(f"GitHub authority number mismatch: {repository}#{number}")
+    projection = _github_projection(payload, resource)
+    digest = hashlib.sha256(
+        json.dumps(projection, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return {
+        "kind": kind,
+        "provider": "github",
+        "resource": resource,
+        "repository": repository,
+        "number": number,
+        "url": canonical_url,
+        "sha256": digest,
+    }
+
+
+def _refresh_authority(root: Path, item: dict[str, Any]) -> dict[str, Any]:
+    if item.get("provider") == "github":
+        return _github_authority(str(item["kind"]), str(item["url"]))
+    return _authority(root, str(item["kind"]), str(item["path"]))
 
 
 def _validate_checkpoint(value: Any) -> None:
@@ -230,7 +339,7 @@ def _validate_state(document: Any, path: Path) -> dict[str, Any]:
         if parent == document.get("work_unit_id"):
             raise GovernanceError("a work unit cannot be its own parent")
     status = document.get("status")
-    valid_statuses = {"active"} if schema == LEGACY_SCHEMA_VERSION else {"active", "closed"}
+    valid_statuses = {"active"} if schema == "0.1" else {"active", "closed"}
     if status not in valid_statuses:
         raise GovernanceError("work-unit state has an invalid status")
     _timestamp(document.get("created_at"), "created_at")
@@ -245,12 +354,39 @@ def _validate_state(document: Any, path: Path) -> dict[str, Any]:
         if not isinstance(kind, str):
             raise GovernanceError("work-unit state has an invalid authority kind")
         _identifier(kind, "stored authority kind")
-        _safe_relative_path(item.get("path"))
+        provider = item.get("provider")
+        if provider is None:
+            _safe_relative_path(item.get("path"))
+        elif provider == "github" and schema == SCHEMA_VERSION:
+            resource = item.get("resource")
+            repository = item.get("repository")
+            number = item.get("number")
+            url = item.get("url")
+            if resource not in {"issue", "pull"}:
+                raise GovernanceError("work-unit state has an invalid GitHub resource")
+            if not isinstance(repository, str) or re.fullmatch(
+                r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository
+            ) is None:
+                raise GovernanceError("work-unit state has an invalid GitHub repository")
+            if not isinstance(number, int) or isinstance(number, bool) or number < 1:
+                raise GovernanceError("work-unit state has an invalid GitHub number")
+            url_match = _GITHUB_URL_PATTERN.fullmatch(url) if isinstance(url, str) else None
+            if url_match is None:
+                raise GovernanceError("work-unit state has an invalid GitHub URL")
+            expected_resource = "issue" if url_match.group("resource") == "issues" else "pull"
+            if (
+                f"{url_match.group('owner')}/{url_match.group('repo')}" != repository
+                or int(url_match.group("number")) != number
+                or expected_resource != resource
+            ):
+                raise GovernanceError("work-unit state has inconsistent GitHub authority identity")
+        else:
+            raise GovernanceError("work-unit state has an invalid authority provider")
         digest = item.get("sha256")
         if not isinstance(digest, str) or _DIGEST_PATTERN.fullmatch(digest) is None:
             raise GovernanceError("work-unit state has an invalid authority digest")
     _validate_checkpoint(document.get("checkpoint"))
-    if schema == SCHEMA_VERSION:
+    if schema in {"0.2", SCHEMA_VERSION}:
         revision = document.get("revision")
         if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
             raise GovernanceError("work-unit state has an invalid revision")
@@ -282,9 +418,10 @@ def _upgrade_state(state: dict[str, Any]) -> dict[str, Any]:
         return copy.deepcopy(state)
     upgraded = copy.deepcopy(state)
     upgraded["schema_version"] = SCHEMA_VERSION
-    upgraded["revision"] = 1
-    upgraded["closed_at"] = None
-    upgraded["close_summary"] = None
+    if state.get("schema_version") == "0.1":
+        upgraded["revision"] = 1
+        upgraded["closed_at"] = None
+        upgraded["close_summary"] = None
     return upgraded
 
 
@@ -307,7 +444,7 @@ def _ensure_private_directory(path: Path) -> None:
 def _fsync_directory(path: Path) -> None:
     if os.name == "nt":
         return
-    descriptor: int | None = None
+    descriptor: Optional[int] = None
     try:
         descriptor = os.open(str(path), os.O_RDONLY)
         os.fsync(descriptor)
@@ -375,10 +512,47 @@ def _print(document: dict[str, Any]) -> None:
     print(json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True))
 
 
-def _authority_status(root: Path, state: dict[str, Any]) -> tuple[bool, list[dict[str, Any]]]:
+def _authority_status(
+    root: Path, state: dict[str, Any], *, fetch_remote: bool = True
+) -> tuple[bool, list[dict[str, Any]]]:
     statuses: list[dict[str, Any]] = []
     matches = True
     for item in state.get("authorities", []):
+        if item.get("provider") == "github":
+            if not fetch_remote:
+                statuses.append(
+                    {
+                        "kind": item.get("kind"),
+                        "provider": "github",
+                        "resource": item.get("resource"),
+                        "repository": item.get("repository"),
+                        "number": item.get("number"),
+                        "url": item.get("url"),
+                        "checked": False,
+                        "checkpoint_sha256": item.get("sha256"),
+                        "current_sha256": None,
+                        "matches_checkpoint": None,
+                    }
+                )
+                continue
+            current = _refresh_authority(root, item)
+            item_matches = current["sha256"] == item.get("sha256")
+            matches = matches and item_matches
+            statuses.append(
+                {
+                    "kind": item.get("kind"),
+                    "provider": "github",
+                    "resource": item.get("resource"),
+                    "repository": item.get("repository"),
+                    "number": item.get("number"),
+                    "url": item.get("url"),
+                    "checked": True,
+                    "checkpoint_sha256": item.get("sha256"),
+                    "current_sha256": current["sha256"],
+                    "matches_checkpoint": item_matches,
+                }
+            )
+            continue
         relative = _safe_relative_path(item.get("path"))
         authority_path = (root / relative).resolve()
         exists = authority_path.is_relative_to(root) and authority_path.is_file()
@@ -388,7 +562,9 @@ def _authority_status(root: Path, state: dict[str, Any]) -> tuple[bool, list[dic
         statuses.append(
             {
                 "kind": item.get("kind"),
+                "provider": "file",
                 "path": relative,
+                "checked": True,
                 "exists": exists,
                 "checkpoint_sha256": item.get("sha256"),
                 "current_sha256": current_digest,
@@ -416,7 +592,12 @@ def _init(args: argparse.Namespace) -> int:
     parent = _identifier(args.parent_work_unit, "parent work-unit ID") if args.parent_work_unit else None
     if parent == args.work_unit:
         raise GovernanceError("a work unit cannot be its own parent")
-    authorities = [_authority(root, kind, value) for kind, value in args.authority]
+    authorities: list[dict[str, Any]] = [
+        _authority(root, kind, value) for kind, value in args.authority
+    ]
+    authorities.extend(
+        _github_authority(kind, value) for kind, value in args.github_authority
+    )
     created_at = _now()
     state = {
         "schema_version": SCHEMA_VERSION,
@@ -451,10 +632,7 @@ def _checkpoint(args: argparse.Namespace) -> int:
         if original.get("status") != "active":
             raise GovernanceError("only active work units can be checkpointed")
         state = _upgrade_state(original)
-        refreshed = [
-            _authority(root, str(item["kind"]), str(item["path"]))
-            for item in state.get("authorities", [])
-        ]
+        refreshed = [_refresh_authority(root, item) for item in state.get("authorities", [])]
         prior = state.get("checkpoint")
         sequence = int(prior.get("sequence", 0)) + 1 if isinstance(prior, dict) else 1
         recorded_at = _now()
@@ -634,7 +812,7 @@ def _close(args: argparse.Namespace) -> int:
 
 
 def _binding_document(
-    *, session_id: str, agent_id: str | None, work_unit_id: str, actor_id: str
+    *, session_id: str, agent_id: Optional[str], work_unit_id: str, actor_id: str
 ) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
@@ -672,7 +850,9 @@ def _bind(args: argparse.Namespace) -> int:
     return 0
 
 
-def _read_binding(root: Path, session_id: str, agent_id: str | None) -> dict[str, Any] | None:
+def _read_binding(
+    root: Path, session_id: str, agent_id: Optional[str]
+) -> Optional[dict[str, Any]]:
     path = _binding_path(root, session_id, agent_id)
     if not path.is_file():
         return None
@@ -681,7 +861,7 @@ def _read_binding(root: Path, session_id: str, agent_id: str | None) -> dict[str
     except (OSError, json.JSONDecodeError):
         return None
     required = ("session_id", "work_unit_id", "actor_id", "bound_at")
-    if document.get("schema_version") != SCHEMA_VERSION or not all(
+    if document.get("schema_version") not in {"0.2", SCHEMA_VERSION} or not all(
         isinstance(document.get(key), str) for key in required
     ):
         return None
@@ -723,6 +903,7 @@ def _parser() -> argparse.ArgumentParser:
     initialize = subparsers.choices["init"]
     initialize.add_argument("--parent-work-unit")
     initialize.add_argument("--authority", nargs=2, action="append", default=[])
+    initialize.add_argument("--github-authority", nargs=2, action="append", default=[])
     checkpoint = subparsers.choices["checkpoint"]
     checkpoint.add_argument("--summary", required=True)
     checkpoint.add_argument("--next-action", required=True)
@@ -740,7 +921,7 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Optional[list[str]] = None) -> int:
     args = _parser().parse_args(argv)
     handlers = {
         "init": _init,

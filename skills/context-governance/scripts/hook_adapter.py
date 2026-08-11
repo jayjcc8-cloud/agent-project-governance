@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import work_unit
 
@@ -35,7 +35,9 @@ def _context_output(event: str, text: str) -> dict[str, Any]:
     }
 
 
-def _binding_context(root: Path, session_id: str, agent_id: str | None) -> dict[str, Any] | None:
+def _binding_context(
+    root: Path, session_id: str, agent_id: Optional[str]
+) -> Optional[dict[str, Any]]:
     binding = work_unit._read_binding(root, session_id, agent_id)
     if binding is None:
         return None
@@ -44,10 +46,15 @@ def _binding_context(root: Path, session_id: str, agent_id: str | None) -> dict[
             work_unit._unit_path(root, str(binding["work_unit_id"]))
         )
         work_unit._require_actor(state, str(binding["actor_id"]))
-        matches, _ = work_unit._authority_status(root, state)
+        matches, statuses = work_unit._authority_status(root, state, fetch_remote=False)
     except (work_unit.GovernanceError, OSError):
         return None
-    return {"binding": binding, "state": state, "authorities_match": matches}
+    return {
+        "binding": binding,
+        "state": state,
+        "authorities_match": matches,
+        "remote_check_required": any(item.get("checked") is False for item in statuses),
+    }
 
 
 def _checkpoint_text(context: dict[str, Any]) -> str:
@@ -62,9 +69,14 @@ def _checkpoint_text(context: dict[str, Any]) -> str:
     else:
         checkpoint_text = "No checkpoint has been recorded."
     match_text = "match" if context["authorities_match"] else "changed; reconcile before continuing"
+    remote_text = (
+        " Remote GitHub authorities were not fetched by this hook; run explicit resume or evaluate."
+        if context.get("remote_check_required")
+        else ""
+    )
     return (
         f"Bound work unit {binding['work_unit_id']} owned by actor {binding['actor_id']}. "
-        f"Authorities {match_text}. {checkpoint_text}"
+        f"Local authorities {match_text}.{remote_text} {checkpoint_text}"
     )
 
 

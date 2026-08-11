@@ -25,3 +25,15 @@ Use one copy per governed trial and one comparable run without the plugin. Do no
 - Failures or ambiguity:
 - Did governance materially improve recovery time or reduce leaks/drift?
 - Recommended product change:
+
+Calculate each paired run with the same declared threshold:
+
+```bash
+python3 skills/context-governance/scripts/trial_summary.py \
+  --baseline 116.522 --baseline 115.979 --baseline 144.616 \
+  --governed 66.787 --governed 57.059 --governed 88.413 \
+  --threshold-percent 50 \
+  --json
+```
+
+Keep raw durations and the JSON result with the trial evidence. A `directional_benefit` verdict is not equivalent to meeting the effect threshold.

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -12,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 SCHEMA_VERSION = "0.2"
@@ -49,19 +50,19 @@ def _compatibility() -> dict[str, Any]:
     return _load_json(_skill_root() / "references" / "compatibility.json")
 
 
-def _version(value: str | None) -> tuple[int, int, int] | None:
+def _version(value: Optional[str]) -> Optional[tuple[int, int, int]]:
     if not value:
         return None
     match = _VERSION_RE.search(value)
     return tuple(int(part) for part in match.groups()) if match else None
 
 
-def _version_text(value: tuple[int, int, int] | None) -> str | None:
+def _version_text(value: Optional[tuple[int, int, int]]) -> Optional[str]:
     return ".".join(str(part) for part in value) if value else None
 
 
 def _classify_version(
-    installed: tuple[int, int, int] | None,
+    installed: Optional[tuple[int, int, int]],
     *,
     minimum: str,
     verified: str,
@@ -80,7 +81,7 @@ def _classify_version(
     return "unknown_version"
 
 
-def _run(arguments: list[str]) -> subprocess.CompletedProcess[str] | None:
+def _run(arguments: list[str]) -> Optional[subprocess.CompletedProcess[str]]:
     try:
         return subprocess.run(
             arguments,
@@ -118,7 +119,7 @@ def _detect_spec_kit(root: Path, compatibility: dict[str, Any]) -> dict[str, Any
     }
 
 
-def _plugin_inventory() -> dict[str, Any] | None:
+def _plugin_inventory() -> Optional[dict[str, Any]]:
     executable = shutil.which("codex")
     if not executable:
         return None
@@ -170,7 +171,7 @@ def _detect_superpowers(compatibility: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _bridge_version(directory: Path) -> tuple[int, int, int] | None:
+def _bridge_version(directory: Path) -> Optional[tuple[int, int, int]]:
     candidates = list(directory.rglob("verified-versions.json"))
     candidates.extend(directory.glob("extension.y*ml"))
     candidates.extend(directory.glob("manifest.y*ml"))
@@ -216,6 +217,33 @@ def _asset(name: str) -> bytes:
     return (_skill_root() / "assets" / name).read_bytes()
 
 
+def _sha256(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def _agents_reconciliation(existing: bytes, expected: bytes) -> dict[str, Any]:
+    try:
+        existing_text = existing.decode("utf-8")
+        expected_text = expected.decode("utf-8")
+    except UnicodeDecodeError:
+        return {
+            "strategy": "manual_merge",
+            "reason_code": "AGENTS_NOT_UTF8",
+            "existing_sha256": _sha256(existing),
+            "template_sha256": _sha256(expected),
+            "missing_template_rules": [],
+        }
+    existing_rules = {line.strip() for line in existing_text.splitlines() if line.strip().startswith("-")}
+    expected_rules = [line.strip() for line in expected_text.splitlines() if line.strip().startswith("-")]
+    return {
+        "strategy": "manual_merge",
+        "reason_code": "USER_OWNED_AGENTS_DIFFERS",
+        "existing_sha256": _sha256(existing),
+        "template_sha256": _sha256(expected),
+        "missing_template_rules": [rule for rule in expected_rules if rule not in existing_rules],
+    }
+
+
 def _file_operations(root: Path) -> list[dict[str, Any]]:
     mappings = (
         (".agent-governance/context-policy.json", "context-policy.json"),
@@ -233,7 +261,17 @@ def _file_operations(root: Path) -> list[dict[str, Any]]:
             action = "skip"
         else:
             action = "conflict"
-        operations.append({"path": target_name, "action": action, "asset": asset_name})
+        operation: dict[str, Any] = {"path": target_name, "action": action, "asset": asset_name}
+        if action == "conflict":
+            operation["reason_code"] = "USER_OWNED_FILE_DIFFERS"
+            if target_name == "AGENTS.md" and path.is_file():
+                operation["reconciliation"] = _agents_reconciliation(path.read_bytes(), expected)
+            else:
+                operation["reconciliation"] = {
+                    "strategy": "manual_review",
+                    "template_sha256": _sha256(expected),
+                }
+        operations.append(operation)
     ignore = root / ".gitignore"
     expected_line = ".agent-runtime/"
     if not ignore.exists():
@@ -244,9 +282,22 @@ def _file_operations(root: Path) -> list[dict[str, Any]]:
         ignore_action = "skip"
     else:
         ignore_action = "conflict"
-    operations.append(
-        {"path": ".gitignore", "action": ignore_action, "expected_line": expected_line}
-    )
+    ignore_operation: dict[str, Any] = {
+        "path": ".gitignore",
+        "action": ignore_action,
+        "expected_line": expected_line,
+    }
+    if ignore_action == "conflict":
+        ignore_operation.update(
+            {
+                "reason_code": "MISSING_RUNTIME_IGNORE_RULE",
+                "reconciliation": {
+                    "strategy": "append_line_manually",
+                    "line": expected_line,
+                },
+            }
+        )
+    operations.append(ignore_operation)
     return operations
 
 
@@ -325,6 +376,11 @@ def _print_human(command: str, report: dict[str, Any]) -> None:
     print(f"Repository: {report['repository_kind']}")
     for operation in report["operations"]:
         print(f"{operation['action']:>8}  {operation['path']}")
+        if operation.get("reconciliation"):
+            strategy = operation["reconciliation"]["strategy"]
+            print(f"  Reconcile: {strategy}")
+            for rule in operation["reconciliation"].get("missing_template_rules", []):
+                print(f"    Missing: {rule}")
     for dependency in report["dependencies"]:
         suffix = f" {dependency['version']}" if dependency.get("version") else ""
         print(f"{dependency['status']:>18}  {dependency['name']}{suffix}")
@@ -345,7 +401,7 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Optional[list[str]] = None) -> int:
     args = _parser().parse_args(argv)
     try:
         root = _project_root(args.project_root)

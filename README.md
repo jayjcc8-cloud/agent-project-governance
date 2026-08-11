@@ -4,7 +4,7 @@ A deliberately small, skills-only Codex plugin for durable context governance in
 
 Repository: [github.com/jayjcc8-cloud/agent-project-governance](https://github.com/jayjcc8-cloud/agent-project-governance)
 
-Version 0.2 is a developer preview with two workflows:
+Version 0.3 is a developer preview with two workflows:
 
 - `project-bootstrap` previews and creates missing governance assets without overwriting project policy or installing dependencies.
 - `context-governance` checkpoints, resumes, evaluates, binds, migrates, and closes actor-owned work units under `.agent-runtime/`.
@@ -38,9 +38,11 @@ python3 skills/project-bootstrap/scripts/bootstrap.py apply \
 
 Existing files are never changed. A differing `AGENTS.md`, `.gitignore`, policy, or ADR file is reported as a conflict for manual reconciliation. Missing Spec Kit, Superpowers, and bridge installations produce copyable instructions but are never installed automatically.
 
+For brownfield `AGENTS.md` files, JSON output includes existing/template digests and the missing minimal governance rules. This is merge guidance only; `apply` still never edits the user-owned file.
+
 ## Context governance
 
-Initialize an actor-owned work unit and record only canonical file paths and hashes:
+Initialize an actor-owned work unit and record only canonical authority identifiers and hashes:
 
 ```bash
 python3 skills/context-governance/scripts/work_unit.py init \
@@ -49,6 +51,20 @@ python3 skills/context-governance/scripts/work_unit.py init \
   --actor main \
   --authority tasks specs/001-feature/tasks.md
 ```
+
+GitHub Issues and PRs can also be tracked without persisting their contents:
+
+```bash
+python3 skills/context-governance/scripts/work_unit.py init \
+  --project-root /path/to/project \
+  --work-unit feature-001 \
+  --actor main \
+  --authority tasks specs/001-feature/tasks.md \
+  --github-authority issue https://github.com/OWNER/REPO/issues/123 \
+  --github-authority implementation https://github.com/OWNER/REPO/pull/456
+```
+
+Remote checks use authenticated `gh api` access. Only canonical identifiers and SHA-256 digests are stored; hooks never perform network requests.
 
 Checkpoint before compaction or handoff:
 
@@ -91,7 +107,7 @@ Hooks are read-only and advisory:
 - They read a work unit only after the current session has been explicitly bound.
 - A subagent never inherits the main session binding.
 
-Review and trust the plugin hooks in Codex before they run. macOS and Linux hooks are supported in 0.2; Windows hook commands remain experimental. The core Python CLI supports Python 3.9+ on macOS, Linux, and Windows.
+Review and trust the plugin hooks in Codex before they run. macOS and Linux hooks are supported in 0.3; Windows hook commands remain experimental. The core Python CLI supports Python 3.9+ on macOS, Linux, and Windows.
 
 ## Compatibility baseline
 
@@ -113,6 +129,17 @@ python3 /path/to/skill-creator/scripts/quick_validate.py skills/context-governan
 ```
 
 Real long-task trials determine whether the project advances to V1. Record recovery time, actor state leaks, and unnoticed authority changes using [the trial template](docs/trials.md).
+
+## Public installation and releases
+
+Add the public GitHub marketplace pinned to this release, then install the plugin:
+
+```bash
+codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref v0.3.0
+codex plugin add agent-project-governance@agent-project-governance
+```
+
+The repository marketplace is pinned to the same tag as the plugin manifest. Pushing `v0.3.0` runs the release workflow, validates Python 3.9 syntax and package invariants, executes all tests, and publishes a deterministic ZIP plus SHA-256 to GitHub Releases. This public GitHub distribution is separate from submission to OpenAI's universal Plugins Directory.
 
 ## License
 
