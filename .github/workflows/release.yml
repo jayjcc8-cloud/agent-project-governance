@@ -34,3 +34,4 @@ jobs:
           "dist/agent-project-governance-${GITHUB_REF_NAME}.zip.sha256"
           --verify-tag
           --generate-notes
+          --prerelease
