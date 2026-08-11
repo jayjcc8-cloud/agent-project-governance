@@ -1,0 +1,21 @@
+{
+  "name": "agent-project-governance",
+  "interface": {
+    "displayName": "Agent Project Governance"
+  },
+  "plugins": [
+    {
+      "name": "agent-project-governance",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/jayjcc8-cloud/agent-project-governance.git",
+        "ref": "v0.3.0"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

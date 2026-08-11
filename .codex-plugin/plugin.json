@@ -1,6 +1,6 @@
 {
   "name": "agent-project-governance",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Bootstrap and govern isolated AI work units without creating a second plan",
   "author": {
     "name": "Agent Project Governance contributors"
