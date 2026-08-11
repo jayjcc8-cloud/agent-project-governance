@@ -97,6 +97,11 @@ def validate(root: Path, expected_tag: Optional[str] = None) -> dict[str, Any]:
         raise ValidationError("public marketplace entry must use a Git-backed root URL")
     if source.get("ref") != f"v{version}":
         raise ValidationError("marketplace ref must pin the manifest release tag")
+    release_workflow = (root / ".github" / "workflows" / "release.yml").read_text(
+        encoding="utf-8"
+    )
+    if "--prerelease" not in release_workflow:
+        raise ValidationError("developer-preview releases must be marked as prereleases")
     return {
         "valid": True,
         "plugin": PLUGIN_NAME,
