@@ -19,7 +19,7 @@ Agent Project Governance is a local, advisory context-governance layer. It helps
 - It does not infer actor ownership. A missing or ambiguous binding must be explicitly resolved or treated as unbound.
 - It does not persist source contents, task copies, chat transcripts, evaluation results, or telemetry.
 - It does not synchronize `.agent-runtime` across machines or recover state that was never checkpointed.
-- GitHub Issue/PR authority digests do not currently cover review-thread resolution, comments, Actions logs, or arbitrary linked resources. Those require separate authoritative reads.
+- GitHub Issue/PR `github-v2` authority digests cover review-thread resolution and status-check rollups, but not full comments, Actions logs, or arbitrary linked resources. Those require separate authoritative reads.
 - Advisory hooks do not make network requests and cannot prove remote authority freshness by themselves.
 - It cannot guarantee faster recovery. The first controlled EA trial was accurate and isolated but failed the 50% recovery-time improvement threshold.
 - It cannot hot-swap an already-running Codex task to a new plugin build. Tasks pin the cache path selected by their host; updates must add an immutable new build before retiring an old one. If an old path disappears unexpectedly, the POSIX Hook launcher fails open without blocking the host action.

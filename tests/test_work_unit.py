@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import importlib.util
 import json
@@ -113,7 +114,7 @@ class WorkUnitTests(unittest.TestCase):
             checkpoint = self.checkpoint(root)
             self.assertEqual(checkpoint.returncode, 0, checkpoint.stderr)
             state = json.loads(checkpoint.stdout)
-            self.assertEqual(state["schema_version"], "0.3")
+            self.assertEqual(state["schema_version"], "0.4")
             self.assertEqual(state["revision"], 2)
             resumed = self.run_cli(
                 root,
@@ -128,6 +129,10 @@ class WorkUnitTests(unittest.TestCase):
             result = json.loads(resumed.stdout)
             self.assertTrue(result["authorities_match_checkpoint"])
             self.assertEqual(result["checkpoint"]["sequence"], 1)
+            self.assertEqual(result["recovery_contract_version"], "0.1")
+            self.assertEqual(result["completeness"], "complete")
+            self.assertEqual(result["primary_action"], "CONTINUE")
+            self.assertFalse(result["diagnostics"]["persisted"])
             self.assertEqual(tasks.read_text(encoding="utf-8"), "- [ ] T001 Build the feature\n")
 
     def test_actor_cannot_read_another_work_unit(self) -> None:
@@ -272,7 +277,7 @@ class WorkUnitTests(unittest.TestCase):
             )
             self.assertEqual(first.returncode, 0, first.stderr)
             self.assertTrue(json.loads(first.stdout)["migrated"])
-            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["schema_version"], "0.3")
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["schema_version"], "0.4")
             second = self.run_cli(
                 root, "migrate", "--work-unit", "feature-001", "--actor", "main"
             )
@@ -286,7 +291,7 @@ class WorkUnitTests(unittest.TestCase):
             checkpoint = self.checkpoint(root, summary="Legacy upgraded.")
             self.assertEqual(checkpoint.returncode, 0, checkpoint.stderr)
             state = json.loads(checkpoint.stdout)
-            self.assertEqual(state["schema_version"], "0.3")
+            self.assertEqual(state["schema_version"], "0.4")
             self.assertEqual(state["revision"], 2)
 
     def test_bindings_are_hashed_isolated_and_removed_on_close(self) -> None:
@@ -561,27 +566,35 @@ class WorkUnitTests(unittest.TestCase):
             "number": 61,
             "title": "Lifecycle coordinator",
             "body": "Design repair",
-            "state": "open",
-            "state_reason": None,
+            "state": "OPEN",
+            "stateReason": None,
             "locked": False,
-            "labels": [{"name": "architecture"}, {"name": "phase-1"}],
-            "assignees": [{"login": "jayjcc8-cloud"}],
+            "labels": {
+                "nodes": [{"name": "architecture"}, {"name": "phase-1"}],
+                "pageInfo": {"hasNextPage": False},
+            },
+            "assignees": {
+                "nodes": [{"login": "jayjcc8-cloud"}],
+                "pageInfo": {"hasNextPage": False},
+            },
             "milestone": None,
-            "updated_at": "2026-08-10T01:00:00Z",
-            "comments": 4,
+            "updatedAt": "2026-08-10T01:00:00Z",
         }
-        noisy = {**baseline, "updated_at": "2026-08-11T01:00:00Z", "comments": 99}
+        noisy = {**baseline, "updatedAt": "2026-08-11T01:00:00Z"}
         changed = {**noisy, "body": "Accepted design"}
         url = "https://github.com/jayjcc8-cloud/ea-quant/issues/61"
-        with mock.patch.object(module, "_github_fetch", return_value=baseline):
+        def response(payload):
+            return {"data": {"repository0": {"authority0": payload}}}
+
+        with mock.patch.object(module, "_github_graphql_fetch", return_value=response(baseline)):
             stored = module._github_authority("issue", url)
         state = {"authorities": [stored]}
-        with mock.patch.object(module, "_github_fetch", return_value=noisy):
+        with mock.patch.object(module, "_github_graphql_fetch", return_value=response(noisy)):
             matches, statuses = module._authority_status(Path.cwd(), state)
         self.assertTrue(matches)
         self.assertTrue(statuses[0]["matches_checkpoint"])
         self.assertNotIn("body", stored)
-        with mock.patch.object(module, "_github_fetch", return_value=changed):
+        with mock.patch.object(module, "_github_graphql_fetch", return_value=response(changed)):
             matches, statuses = module._authority_status(Path.cwd(), state)
         self.assertFalse(matches)
         self.assertFalse(statuses[0]["matches_checkpoint"])
@@ -605,8 +618,14 @@ class WorkUnitTests(unittest.TestCase):
         self.assertEqual(parsed.github_authority[0][0], "pr")
         with mock.patch.object(
             module,
-            "_github_fetch",
-            return_value={"number": 42, "title": "Change", "state": "open"},
+            "_github_graphql_fetch",
+            return_value={
+                "data": {
+                    "repository0": {
+                        "authority0": {"number": 42, "title": "Change", "state": "OPEN"}
+                    }
+                }
+            },
         ):
             authority = module._github_authority("pr", parsed.github_authority[0][1])
         matches, statuses = module._authority_status(
@@ -615,6 +634,191 @@ class WorkUnitTests(unittest.TestCase):
         self.assertTrue(matches)
         self.assertFalse(statuses[0]["checked"])
         self.assertIsNone(statuses[0]["matches_checkpoint"])
+        self.assertEqual(authority["projection_version"], "github-v2")
+
+    def test_github_snapshot_batches_authorities_and_tracks_pr_delivery_state(self) -> None:
+        module = load_work_unit_module()
+        issue = {
+            "number": 3,
+            "title": "Trial",
+            "body": "Run the trial",
+            "state": "OPEN",
+            "locked": False,
+        }
+        pull = {
+            "number": 6,
+            "title": "Lifecycle safety",
+            "body": "Fail open",
+            "state": "OPEN",
+            "locked": False,
+            "baseRefName": "main",
+            "baseRefOid": "a" * 40,
+            "headRefName": "codex/hook-lifecycle-safety",
+            "headRefOid": "b" * 40,
+            "isDraft": False,
+            "mergedAt": None,
+            "reviewThreads": {
+                "nodes": [{"id": "thread-1", "isResolved": False, "isOutdated": False}],
+                "pageInfo": {"hasNextPage": False},
+            },
+            "statusCheckRollup": {
+                "state": "SUCCESS",
+                "contexts": {
+                    "nodes": [
+                        {
+                            "__typename": "CheckRun",
+                            "name": "test",
+                            "status": "COMPLETED",
+                            "conclusion": "SUCCESS",
+                        }
+                    ],
+                    "pageInfo": {"hasNextPage": False},
+                },
+            },
+        }
+        response = {
+            "data": {
+                "repository0": {
+                    "authority0": issue,
+                    "authority1": pull,
+                }
+            }
+        }
+        values = [
+            ("trial", "https://github.com/acme/widget/issues/3"),
+            ("implementation", "https://github.com/acme/widget/pull/6"),
+        ]
+        with mock.patch.object(
+            module, "_github_graphql_fetch", return_value=response
+        ) as fetched:
+            authorities = module._github_authorities(values)
+        self.assertEqual(fetched.call_count, 1)
+        with mock.patch.object(
+            module, "_github_graphql_fetch", return_value=response
+        ) as fetched:
+            matches, statuses = module._authority_status(
+                Path.cwd(), {"authorities": authorities}
+            )
+        self.assertTrue(matches)
+        self.assertEqual(fetched.call_count, 1)
+        pull_status = statuses[1]
+        self.assertEqual(pull_status["evidence"]["review_threads"]["unresolved"], 1)
+        self.assertEqual(
+            pull_status["evidence"]["status_check_rollup"]["state"], "success"
+        )
+        changed = copy.deepcopy(response)
+        changed["data"]["repository0"]["authority1"]["reviewThreads"]["nodes"][0][
+            "isResolved"
+        ] = True
+        with mock.patch.object(module, "_github_graphql_fetch", return_value=changed):
+            matches, statuses = module._authority_status(
+                Path.cwd(), {"authorities": authorities}
+            )
+        self.assertFalse(matches)
+        self.assertFalse(statuses[1]["matches_checkpoint"])
+
+    def test_legacy_pr_projection_normalizes_graphql_merged_state(self) -> None:
+        module = load_work_unit_module()
+        full = {
+            "number": 6,
+            "title": "Merged",
+            "body": "Done",
+            "state": "merged",
+            "locked": False,
+            "labels": [],
+            "assignees": [],
+            "milestone": None,
+            "base": {"ref": "main", "sha": "a" * 40},
+            "head": {"ref": "feature", "sha": "b" * 40},
+            "draft": False,
+            "merged_at": "2026-08-13T00:00:00Z",
+        }
+        legacy = module._github_legacy_projection(full, "pull")
+        self.assertEqual(legacy["state"], "closed")
+        self.assertEqual(full["state"], "merged")
+
+    def test_github_snapshot_rejects_incomplete_connections(self) -> None:
+        module = load_work_unit_module()
+        response = {
+            "data": {
+                "repository0": {
+                    "authority0": {
+                        "number": 3,
+                        "title": "Large issue",
+                        "body": "Evidence",
+                        "state": "OPEN",
+                        "locked": False,
+                        "labels": {
+                            "nodes": [{"name": "one"}],
+                            "pageInfo": {"hasNextPage": True},
+                        },
+                    }
+                }
+            }
+        }
+        with mock.patch.object(module, "_github_graphql_fetch", return_value=response):
+            with self.assertRaisesRegex(module.GovernanceError, "incomplete"):
+                module._github_authority(
+                    "issue", "https://github.com/acme/widget/issues/3"
+                )
+
+    def test_v03_github_state_resumes_with_legacy_projection_without_write(self) -> None:
+        module = load_work_unit_module()
+        payload = {
+            "number": 3,
+            "title": "Legacy",
+            "body": "Evidence",
+            "state": "OPEN",
+            "stateReason": None,
+            "locked": False,
+        }
+        full, _ = module._github_graphql_projection(payload, "issue")
+        digest = module._projection_digest(module._github_legacy_projection(full, "issue"))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = self.state_path(root)
+            path.parent.mkdir(parents=True)
+            timestamp = "2026-08-13T00:00:00+00:00"
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "0.3",
+                        "revision": 2,
+                        "work_unit_id": "feature-001",
+                        "actor_id": "main",
+                        "parent_work_unit_id": None,
+                        "status": "active",
+                        "created_at": timestamp,
+                        "updated_at": timestamp,
+                        "closed_at": None,
+                        "close_summary": None,
+                        "authorities": [
+                            {
+                                "kind": "issue",
+                                "provider": "github",
+                                "resource": "issue",
+                                "repository": "acme/widget",
+                                "number": 3,
+                                "url": "https://github.com/acme/widget/issues/3",
+                                "sha256": digest,
+                            }
+                        ],
+                        "checkpoint": None,
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            before = path.read_bytes()
+            state = module._read_state(path)
+            response = {"data": {"repository0": {"authority0": payload}}}
+            with mock.patch.object(module, "_github_graphql_fetch", return_value=response):
+                matches, statuses = module._authority_status(root, state)
+            self.assertTrue(matches)
+            self.assertEqual(statuses[0]["projection_version"], "github-v1")
+            self.assertTrue(statuses[0]["upgrade_available"])
+            self.assertEqual(path.read_bytes(), before)
 
     def test_migrate_v02_preserves_revision_and_checkpoint(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -632,7 +836,7 @@ class WorkUnitTests(unittest.TestCase):
             self.assertEqual(migrated.returncode, 0, migrated.stderr)
             result = json.loads(migrated.stdout)
             self.assertTrue(result["migrated"])
-            self.assertEqual(result["state"]["schema_version"], "0.3")
+            self.assertEqual(result["state"]["schema_version"], "0.4")
             self.assertEqual(result["state"]["revision"], 9)
             self.assertEqual(result["state"]["checkpoint"]["sequence"], 1)
 

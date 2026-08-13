@@ -4,7 +4,7 @@ A deliberately small, skills-only Codex plugin for durable context governance in
 
 Repository: [github.com/jayjcc8-cloud/agent-project-governance](https://github.com/jayjcc8-cloud/agent-project-governance)
 
-Version 0.3 is a developer preview with two workflows:
+Version 0.4 is a developer preview with two workflows:
 
 - `project-bootstrap` previews and creates missing governance assets without overwriting project policy or installing dependencies.
 - `context-governance` checkpoints, resumes, evaluates, binds, resolves bindings, migrates, and closes actor-owned work units under `.agent-runtime/`.
@@ -66,7 +66,7 @@ python3 skills/context-governance/scripts/work_unit.py init \
   --github-authority implementation https://github.com/OWNER/REPO/pull/456
 ```
 
-Remote checks use authenticated `gh api` access. Only canonical identifiers and SHA-256 digests are stored; hooks never perform network requests.
+Remote checks use one authenticated GitHub GraphQL snapshot per work unit. The `github-v2` digest includes Issue/PR governance fields plus PR review-thread resolution and check rollups. Only canonical identifiers, projection versions, and SHA-256 digests are stored; current normalized evidence appears only in explicit command output, and hooks never perform network requests.
 
 Checkpoint before compaction or handoff:
 
@@ -96,6 +96,8 @@ python3 skills/context-governance/scripts/work_unit.py evaluate \
   --signal repeated-failure
 ```
 
+`resume` returns a recovery contract with completeness, drift identities, normalized authority evidence, a primary action, and per-command diagnostics. When the contract is complete, consumers should not repeat GitHub reads for fields already returned.
+
 The rule engine returns ordered actions such as `RECONCILE`, `UPDATE_SPEC`, `CONVERGE`, `CHECKPOINT`, `DEBUG_REVIEW`, `WORKTREE`, `NEW_THREAD`, or `CONTINUE`. Every recommendation includes a stable reason and `blocking: false`.
 
 Resolve a binding for the current Codex task without scanning runtime files or guessing actor ownership:
@@ -120,7 +122,7 @@ Hooks are read-only and advisory:
 - A subagent never inherits the main session binding.
 - The POSIX launcher fails open when its pinned plugin directory or Python adapter is unavailable, so a retired build cannot block Stop or compaction.
 
-Review and trust the plugin hooks in Codex before they run. macOS and Linux hooks are supported in 0.3; Windows hook commands remain experimental. The core Python CLI supports Python 3.9+ on macOS, Linux, and Windows.
+Review and trust the plugin hooks in Codex before they run. macOS and Linux hooks are supported in 0.4; Windows hook commands remain experimental. The core Python CLI supports Python 3.9+ on macOS, Linux, and Windows.
 
 ## Compatibility baseline
 
@@ -150,11 +152,11 @@ For local development updates, treat every cachebuster build as immutable. Add t
 Add the public GitHub marketplace pinned to this release, then install the plugin:
 
 ```bash
-codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref v0.3.2
+codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref v0.4.0
 codex plugin add agent-project-governance@agent-project-governance
 ```
 
-The repository marketplace is pinned to the same tag as the plugin manifest. Pushing `v0.3.2` runs the release workflow, validates Python 3.9 syntax and package invariants, executes all tests, and publishes a deterministic ZIP plus SHA-256 to GitHub Releases. This public GitHub distribution is separate from submission to OpenAI's universal Plugins Directory.
+The repository marketplace is pinned to the same tag as the plugin manifest. Pushing `v0.4.0` runs the release workflow, validates Python 3.9 syntax and package invariants, executes all tests, and publishes a deterministic ZIP plus SHA-256 to GitHub Releases. This public GitHub distribution is separate from submission to OpenAI's universal Plugins Directory.
 
 ## License
 

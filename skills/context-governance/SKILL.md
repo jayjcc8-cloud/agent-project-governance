@@ -62,6 +62,8 @@ python scripts/work_unit.py resume \
 
 Reconcile changed authorities before continuing. Explicit resume and evaluate refresh GitHub evidence; advisory hooks never make network requests. A read-only resume never upgrades legacy state.
 
+`resume` returns a recovery contract with current authority evidence, drift identities, completeness, a primary action, and non-persisted diagnostics. GitHub Issue/PR authorities in one work unit are fetched as one composite snapshot. When `completeness` is `complete`, use the returned evidence and do not query GitHub again for fields already present. Query separately only for omitted material such as full comments or Actions logs.
+
 ### Evaluate the next governance action
 
 ```bash
@@ -101,6 +103,6 @@ Use the returned work-unit and actor IDs with `resume --strict`. Exit `1` means 
 
 ### Migrate or close
 
-Use `migrate` for an explicit v0.1/v0.2 → v0.3 upgrade. `checkpoint` also upgrades legacy state after validation. Use `close --summary ...` only after a current checkpoint; close refuses authority drift and removes matching session bindings.
+Use `migrate` for an explicit v0.1/v0.2/v0.3 → v0.4 upgrade. `checkpoint` also upgrades legacy state after validation and promotes legacy GitHub digests to the composite projection. Use `close --summary ...` only after a current checkpoint; close refuses authority drift and removes matching session bindings.
 
 Read [references/state-schema.md](references/state-schema.md) only when changing the script, adding a consumer, or diagnosing incompatible state.

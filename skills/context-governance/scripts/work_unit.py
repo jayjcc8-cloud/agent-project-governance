@@ -19,8 +19,8 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterator, Optional
 
 
-SCHEMA_VERSION = "0.3"
-LEGACY_SCHEMA_VERSIONS = {"0.1", "0.2"}
+SCHEMA_VERSION = "0.4"
+LEGACY_SCHEMA_VERSIONS = {"0.1", "0.2", "0.3"}
 SUPPORTED_SCHEMA_VERSIONS = LEGACY_SCHEMA_VERSIONS | {SCHEMA_VERSION}
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _DIGEST_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -33,6 +33,9 @@ _MAX_LIST_ITEMS = 32
 _MAX_EXTERNAL_ID_LENGTH = 512
 _LOCK_TIMEOUT_SECONDS = 5.0
 _STALE_LOCK_SECONDS = 30.0
+_GITHUB_LEGACY_PROJECTION = "github-v1"
+_GITHUB_PROJECTION = "github-v2"
+_GITHUB_PROJECTIONS = {_GITHUB_LEGACY_PROJECTION, _GITHUB_PROJECTION}
 
 EVENTS = (
     "manual",
@@ -237,32 +240,15 @@ def _github_projection(payload: dict[str, Any], resource: str) -> dict[str, Any]
     return projected
 
 
-def _github_fetch(repository: str, resource: str, number: int) -> dict[str, Any]:
-    endpoint_resource = "issues" if resource == "issue" else "pulls"
-    endpoint = f"repos/{repository}/{endpoint_resource}/{number}"
-    try:
-        result = subprocess.run(
-            ["gh", "api", "--method", "GET", endpoint],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=20,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise GovernanceError(f"cannot read GitHub authority {repository}#{number}: {exc}") from exc
-    if result.returncode != 0:
-        detail = result.stderr.strip() or f"gh exited {result.returncode}"
-        raise GovernanceError(f"cannot read GitHub authority {repository}#{number}: {detail}")
-    try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError as exc:
-        raise GovernanceError(f"GitHub authority returned invalid JSON: {repository}#{number}") from exc
-    if not isinstance(payload, dict):
-        raise GovernanceError(f"GitHub authority returned a non-object: {repository}#{number}")
-    return payload
+def _projection_digest(projection: dict[str, Any]) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            projection, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    ).hexdigest()
 
 
-def _github_authority(kind: str, value: str) -> dict[str, Any]:
+def _github_identity(kind: str, value: str) -> dict[str, Any]:
     _identifier(kind, "authority kind")
     match = _GITHUB_URL_PATTERN.fullmatch(value.strip())
     if match is None:
@@ -272,23 +258,287 @@ def _github_authority(kind: str, value: str) -> dict[str, Any]:
     repository = f"{match.group('owner')}/{match.group('repo')}"
     resource = "issue" if match.group("resource") == "issues" else "pull"
     number = int(match.group("number"))
-    canonical_url = f"https://github.com/{repository}/{'issues' if resource == 'issue' else 'pull'}/{number}"
-    payload = _github_fetch(repository, resource, number)
-    if payload.get("number") != number:
-        raise GovernanceError(f"GitHub authority number mismatch: {repository}#{number}")
-    projection = _github_projection(payload, resource)
-    digest = hashlib.sha256(
-        json.dumps(projection, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
     return {
         "kind": kind,
         "provider": "github",
         "resource": resource,
         "repository": repository,
         "number": number,
-        "url": canonical_url,
-        "sha256": digest,
+        "url": f"https://github.com/{repository}/{'issues' if resource == 'issue' else 'pull'}/{number}",
     }
+
+
+def _github_selection(resource: str) -> str:
+    common = """
+        number title body state locked
+        labels(first: 100) { nodes { name } pageInfo { hasNextPage } }
+        assignees(first: 100) { nodes { login } pageInfo { hasNextPage } }
+        milestone { number title state }
+    """
+    if resource == "issue":
+        return common + " stateReason"
+    return common + """
+        baseRefName baseRefOid headRefName headRefOid isDraft mergedAt
+        reviewThreads(first: 100) {
+          nodes { id isResolved isOutdated }
+          pageInfo { hasNextPage }
+        }
+        statusCheckRollup {
+          state
+          contexts(first: 100) {
+            nodes {
+              __typename
+              ... on CheckRun { name status conclusion }
+              ... on StatusContext { context state }
+            }
+            pageInfo { hasNextPage }
+          }
+        }
+    """
+
+
+def _github_query(items: list[dict[str, Any]]) -> tuple[str, dict[tuple[str, str, int], tuple[str, str]]]:
+    repositories: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+    aliases: dict[tuple[str, str, int], tuple[str, str]] = {}
+    for index, item in enumerate(items):
+        repository = str(item["repository"])
+        authority_alias = f"authority{index}"
+        repositories.setdefault(repository, []).append((authority_alias, item))
+    repository_fields: list[str] = []
+    for repository_index, (repository, authorities) in enumerate(repositories.items()):
+        owner, name = repository.split("/", 1)
+        repository_alias = f"repository{repository_index}"
+        authority_fields: list[str] = []
+        for authority_alias, item in authorities:
+            resource = str(item["resource"])
+            field = "issue" if resource == "issue" else "pullRequest"
+            number = int(item["number"])
+            authority_fields.append(
+                f"{authority_alias}: {field}(number: {number}) {{ {_github_selection(resource)} }}"
+            )
+            aliases[(repository, resource, number)] = (repository_alias, authority_alias)
+        repository_fields.append(
+            f"{repository_alias}: repository(owner: {json.dumps(owner)}, name: {json.dumps(name)}) "
+            f"{{ {' '.join(authority_fields)} }}"
+        )
+    return "query { " + " ".join(repository_fields) + " }", aliases
+
+
+def _github_graphql_fetch(items: list[dict[str, Any]]) -> dict[str, Any]:
+    query, _ = _github_query(items)
+    try:
+        result = subprocess.run(
+            ["gh", "api", "graphql", "--method", "POST", "-f", f"query={query}"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise GovernanceError(f"cannot read GitHub authority snapshot: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip() or f"gh exited {result.returncode}"
+        raise GovernanceError(f"cannot read GitHub authority snapshot: {detail}")
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise GovernanceError("GitHub authority snapshot returned invalid JSON") from exc
+    if not isinstance(payload, dict):
+        raise GovernanceError("GitHub authority snapshot returned a non-object")
+    if payload.get("errors"):
+        raise GovernanceError("GitHub authority snapshot returned GraphQL errors")
+    return payload
+
+
+def _connection(payload: dict[str, Any], name: str) -> list[dict[str, Any]]:
+    value = payload.get(name)
+    if not isinstance(value, dict):
+        return []
+    page_info = value.get("pageInfo")
+    if isinstance(page_info, dict) and page_info.get("hasNextPage") is True:
+        raise GovernanceError(f"GitHub authority snapshot is incomplete: {name} exceeds 100 nodes")
+    nodes = value.get("nodes")
+    if not isinstance(nodes, list):
+        return []
+    return [node for node in nodes if isinstance(node, dict)]
+
+
+def _lower_optional(value: Any) -> Optional[str]:
+    return value.lower() if isinstance(value, str) and value else None
+
+
+def _github_graphql_projection(payload: dict[str, Any], resource: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    milestone_value = payload.get("milestone")
+    milestone = None
+    if isinstance(milestone_value, dict):
+        milestone = {
+            "number": milestone_value.get("number"),
+            "title": milestone_value.get("title"),
+            "state": _lower_optional(milestone_value.get("state")),
+        }
+    labels = sorted(
+        str(node["name"])
+        for node in _connection(payload, "labels")
+        if isinstance(node.get("name"), str)
+    )
+    assignees = sorted(
+        str(node["login"])
+        for node in _connection(payload, "assignees")
+        if isinstance(node.get("login"), str)
+    )
+    core: dict[str, Any] = {
+        "number": payload.get("number"),
+        "title": payload.get("title"),
+        "body": payload.get("body"),
+        "state": _lower_optional(payload.get("state")),
+        "locked": payload.get("locked"),
+        "labels": labels,
+        "assignees": assignees,
+        "milestone": milestone,
+    }
+    evidence: dict[str, Any] = {
+        "number": payload.get("number"),
+        "title": payload.get("title"),
+        "state": core["state"],
+        "locked": payload.get("locked"),
+        "labels": labels,
+        "assignees": assignees,
+        "body_sha256": hashlib.sha256(str(payload.get("body") or "").encode("utf-8")).hexdigest(),
+    }
+    if resource == "issue":
+        state_reason = _lower_optional(payload.get("stateReason"))
+        core["state_reason"] = state_reason
+        evidence["state_reason"] = state_reason
+        return core, evidence
+    core.update(
+        {
+            "base": {"ref": payload.get("baseRefName"), "sha": payload.get("baseRefOid")},
+            "head": {"ref": payload.get("headRefName"), "sha": payload.get("headRefOid")},
+            "draft": payload.get("isDraft"),
+            "merged_at": payload.get("mergedAt"),
+        }
+    )
+    review_threads = sorted(
+        (
+            {
+                "id": node.get("id"),
+                "resolved": node.get("isResolved"),
+                "outdated": node.get("isOutdated"),
+            }
+            for node in _connection(payload, "reviewThreads")
+        ),
+        key=lambda node: str(node.get("id")),
+    )
+    rollup = payload.get("statusCheckRollup")
+    check_state = None
+    checks: list[dict[str, Any]] = []
+    if isinstance(rollup, dict):
+        check_state = _lower_optional(rollup.get("state"))
+        checks = sorted(
+            (
+                {
+                    "type": node.get("__typename"),
+                    "name": node.get("name") or node.get("context"),
+                    "status": node.get("status"),
+                    "conclusion": node.get("conclusion") or node.get("state"),
+                }
+                for node in _connection(rollup, "contexts")
+            ),
+            key=lambda node: (str(node.get("type")), str(node.get("name"))),
+        )
+    full = {
+        **core,
+        "review_threads": review_threads,
+        "status_check_rollup": {"state": check_state, "checks": checks},
+    }
+    evidence.update(
+        {
+            "base": core["base"],
+            "head": core["head"],
+            "draft": core["draft"],
+            "merged_at": core["merged_at"],
+            "review_threads": {
+                "total": len(review_threads),
+                "unresolved": sum(1 for item in review_threads if item.get("resolved") is False),
+            },
+            "status_check_rollup": {"state": check_state, "checks": checks},
+        }
+    )
+    return full, evidence
+
+
+def _github_legacy_projection(full: dict[str, Any], resource: str) -> dict[str, Any]:
+    projection = {
+        name: copy.deepcopy(full.get(name))
+        for name in ("number", "title", "body", "state", "locked", "labels", "assignees", "milestone")
+    }
+    if resource == "issue":
+        projection["state_reason"] = full.get("state_reason")
+    else:
+        if projection["state"] == "merged":
+            projection["state"] = "closed"
+        projection.update(
+            {
+                "base": copy.deepcopy(full.get("base")),
+                "head": copy.deepcopy(full.get("head")),
+                "draft": full.get("draft"),
+                "merged_at": full.get("merged_at"),
+            }
+        )
+    return projection
+
+
+def _github_snapshots(items: list[dict[str, Any]]) -> dict[tuple[str, str, int], dict[str, Any]]:
+    if not items:
+        return {}
+    _, aliases = _github_query(items)
+    response = _github_graphql_fetch(items)
+    data = response.get("data")
+    if not isinstance(data, dict):
+        raise GovernanceError("GitHub authority snapshot lacks data")
+    snapshots: dict[tuple[str, str, int], dict[str, Any]] = {}
+    for item in items:
+        key = (str(item["repository"]), str(item["resource"]), int(item["number"]))
+        repository_alias, authority_alias = aliases[key]
+        repository_payload = data.get(repository_alias)
+        payload = repository_payload.get(authority_alias) if isinstance(repository_payload, dict) else None
+        if not isinstance(payload, dict) or payload.get("number") != item["number"]:
+            raise GovernanceError(
+                f"GitHub authority snapshot is missing {item['repository']}#{item['number']}"
+            )
+        full, evidence = _github_graphql_projection(payload, str(item["resource"]))
+        snapshots[key] = {
+            _GITHUB_LEGACY_PROJECTION: _github_legacy_projection(
+                full, str(item["resource"])
+            ),
+            _GITHUB_PROJECTION: full,
+            "evidence": evidence,
+        }
+    return snapshots
+
+
+def _github_authorities(values: list[tuple[str, str]]) -> list[dict[str, Any]]:
+    identities = [_github_identity(kind, value) for kind, value in values]
+    snapshots = _github_snapshots(identities)
+    authorities: list[dict[str, Any]] = []
+    for identity in identities:
+        key = (
+            str(identity["repository"]),
+            str(identity["resource"]),
+            int(identity["number"]),
+        )
+        authorities.append(
+            {
+                **identity,
+                "projection_version": _GITHUB_PROJECTION,
+                "sha256": _projection_digest(snapshots[key][_GITHUB_PROJECTION]),
+            }
+        )
+    return authorities
+
+
+def _github_authority(kind: str, value: str) -> dict[str, Any]:
+    return _github_authorities([(kind, value)])[0]
 
 
 def _refresh_authority(root: Path, item: dict[str, Any]) -> dict[str, Any]:
@@ -357,7 +607,7 @@ def _validate_state(document: Any, path: Path) -> dict[str, Any]:
         provider = item.get("provider")
         if provider is None:
             _safe_relative_path(item.get("path"))
-        elif provider == "github" and schema == SCHEMA_VERSION:
+        elif provider == "github" and schema in {"0.3", SCHEMA_VERSION}:
             resource = item.get("resource")
             repository = item.get("repository")
             number = item.get("number")
@@ -380,13 +630,18 @@ def _validate_state(document: Any, path: Path) -> dict[str, Any]:
                 or expected_resource != resource
             ):
                 raise GovernanceError("work-unit state has inconsistent GitHub authority identity")
+            projection_version = item.get("projection_version")
+            if schema == SCHEMA_VERSION and projection_version not in _GITHUB_PROJECTIONS:
+                raise GovernanceError("work-unit state has an invalid GitHub projection version")
+            if schema == "0.3" and projection_version not in {None, _GITHUB_LEGACY_PROJECTION}:
+                raise GovernanceError("legacy work-unit state has an invalid GitHub projection version")
         else:
             raise GovernanceError("work-unit state has an invalid authority provider")
         digest = item.get("sha256")
         if not isinstance(digest, str) or _DIGEST_PATTERN.fullmatch(digest) is None:
             raise GovernanceError("work-unit state has an invalid authority digest")
     _validate_checkpoint(document.get("checkpoint"))
-    if schema in {"0.2", SCHEMA_VERSION}:
+    if schema != "0.1":
         revision = document.get("revision")
         if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
             raise GovernanceError("work-unit state has an invalid revision")
@@ -422,6 +677,9 @@ def _upgrade_state(state: dict[str, Any]) -> dict[str, Any]:
         upgraded["revision"] = 1
         upgraded["closed_at"] = None
         upgraded["close_summary"] = None
+    for item in upgraded.get("authorities", []):
+        if item.get("provider") == "github" and "projection_version" not in item:
+            item["projection_version"] = _GITHUB_LEGACY_PROJECTION
     return upgraded
 
 
@@ -517,8 +775,15 @@ def _authority_status(
 ) -> tuple[bool, list[dict[str, Any]]]:
     statuses: list[dict[str, Any]] = []
     matches = True
+    github_items = [
+        item for item in state.get("authorities", []) if item.get("provider") == "github"
+    ]
+    github_snapshots = _github_snapshots(github_items) if fetch_remote and github_items else {}
     for item in state.get("authorities", []):
         if item.get("provider") == "github":
+            projection_version = str(
+                item.get("projection_version") or _GITHUB_LEGACY_PROJECTION
+            )
             if not fetch_remote:
                 statuses.append(
                     {
@@ -529,14 +794,22 @@ def _authority_status(
                         "number": item.get("number"),
                         "url": item.get("url"),
                         "checked": False,
+                        "completeness": "remote_check_required",
+                        "projection_version": projection_version,
                         "checkpoint_sha256": item.get("sha256"),
                         "current_sha256": None,
                         "matches_checkpoint": None,
                     }
                 )
                 continue
-            current = _refresh_authority(root, item)
-            item_matches = current["sha256"] == item.get("sha256")
+            key = (
+                str(item["repository"]),
+                str(item["resource"]),
+                int(item["number"]),
+            )
+            snapshot = github_snapshots[key]
+            current_digest = _projection_digest(snapshot[projection_version])
+            item_matches = current_digest == item.get("sha256")
             matches = matches and item_matches
             statuses.append(
                 {
@@ -547,9 +820,13 @@ def _authority_status(
                     "number": item.get("number"),
                     "url": item.get("url"),
                     "checked": True,
+                    "completeness": "complete",
+                    "projection_version": projection_version,
+                    "upgrade_available": projection_version != _GITHUB_PROJECTION,
                     "checkpoint_sha256": item.get("sha256"),
-                    "current_sha256": current["sha256"],
+                    "current_sha256": current_digest,
                     "matches_checkpoint": item_matches,
+                    "evidence": snapshot["evidence"],
                 }
             )
             continue
@@ -565,6 +842,7 @@ def _authority_status(
                 "provider": "file",
                 "path": relative,
                 "checked": True,
+                "completeness": "complete",
                 "exists": exists,
                 "checkpoint_sha256": item.get("sha256"),
                 "current_sha256": current_digest,
@@ -595,9 +873,7 @@ def _init(args: argparse.Namespace) -> int:
     authorities: list[dict[str, Any]] = [
         _authority(root, kind, value) for kind, value in args.authority
     ]
-    authorities.extend(
-        _github_authority(kind, value) for kind, value in args.github_authority
-    )
+    authorities.extend(_github_authorities(args.github_authority))
     created_at = _now()
     state = {
         "schema_version": SCHEMA_VERSION,
@@ -632,7 +908,32 @@ def _checkpoint(args: argparse.Namespace) -> int:
         if original.get("status") != "active":
             raise GovernanceError("only active work units can be checkpointed")
         state = _upgrade_state(original)
-        refreshed = [_refresh_authority(root, item) for item in state.get("authorities", [])]
+        local_authorities = [
+            _refresh_authority(root, item)
+            for item in state.get("authorities", [])
+            if item.get("provider") != "github"
+        ]
+        github_values = [
+            (str(item["kind"]), str(item["url"]))
+            for item in state.get("authorities", [])
+            if item.get("provider") == "github"
+        ]
+        refreshed_github = _github_authorities(github_values)
+        refreshed_by_identity = {
+            (item["kind"], item["repository"], item["resource"], item["number"]): item
+            for item in refreshed_github
+        }
+        local_iterator = iter(local_authorities)
+        refreshed = []
+        for item in state.get("authorities", []):
+            if item.get("provider") == "github":
+                refreshed.append(
+                    refreshed_by_identity[
+                        (item["kind"], item["repository"], item["resource"], item["number"])
+                    ]
+                )
+            else:
+                refreshed.append(next(local_iterator))
         prior = state.get("checkpoint")
         sequence = int(prior.get("sequence", 0)) + 1 if isinstance(prior, dict) else 1
         recorded_at = _now()
@@ -653,12 +954,42 @@ def _checkpoint(args: argparse.Namespace) -> int:
 
 
 def _resume(args: argparse.Namespace) -> int:
+    started = time.monotonic()
     root = _project_root(args.project_root)
     state = _read_state(_unit_path(root, args.work_unit))
     _require_actor(state, args.actor)
     matches, statuses = _authority_status(root, state)
     output = _base_output(state)
-    output.update({"authorities_match_checkpoint": matches, "authority_status": statuses})
+    drift = [
+        {
+            key: item.get(key)
+            for key in ("kind", "provider", "path", "repository", "resource", "number", "url")
+            if item.get(key) is not None
+        }
+        for item in statuses
+        if item.get("matches_checkpoint") is False
+    ]
+    completeness = (
+        "complete"
+        if all(item.get("completeness") == "complete" for item in statuses)
+        else "incomplete"
+    )
+    output.update(
+        {
+            "recovery_contract_version": "0.1",
+            "authorities_match_checkpoint": matches,
+            "authority_status": statuses,
+            "drift": drift,
+            "completeness": completeness,
+            "primary_action": "CONTINUE" if matches else "RECONCILE",
+            "reason_code": "AUTHORITIES_MATCH" if matches else "AUTHORITY_CHANGED",
+            "blocking": False,
+            "diagnostics": {
+                "total_ms": round((time.monotonic() - started) * 1000, 3),
+                "persisted": False,
+            },
+        }
+    )
     _print(output)
     return 1 if args.strict and not matches else 0
 
@@ -861,7 +1192,7 @@ def _read_binding(
     except (OSError, json.JSONDecodeError):
         return None
     required = ("session_id", "work_unit_id", "actor_id", "bound_at")
-    if document.get("schema_version") not in {"0.2", SCHEMA_VERSION} or not all(
+    if document.get("schema_version") not in {"0.2", "0.3", SCHEMA_VERSION} or not all(
         isinstance(document.get(key), str) for key in required
     ):
         return None

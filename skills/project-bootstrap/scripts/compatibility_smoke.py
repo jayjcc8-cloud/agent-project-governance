@@ -116,7 +116,7 @@ def evaluate(
         "governance_lifecycle": lifecycle["passed"],
     }
     return {
-        "schema_version": "0.3",
+        "schema_version": "0.4",
         "passed": all(checks.values()),
         "checks": checks,
         "dependencies": dependencies,
