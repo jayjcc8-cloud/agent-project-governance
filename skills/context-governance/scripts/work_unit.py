@@ -81,6 +81,14 @@ class GovernanceError(RuntimeError):
     """Invalid input, state, ownership, path, or I/O condition."""
 
 
+class AuthorityUnavailable(GovernanceError):
+    """Remote authority evidence could not be obtained or trusted."""
+
+
+class AuthorityIncomplete(GovernanceError):
+    """Remote authority evidence exceeded a bounded projection."""
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -335,18 +343,18 @@ def _github_graphql_fetch(items: list[dict[str, Any]]) -> dict[str, Any]:
             timeout=20,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise GovernanceError(f"cannot read GitHub authority snapshot: {exc}") from exc
+        raise AuthorityUnavailable(f"cannot read GitHub authority snapshot: {exc}") from exc
     if result.returncode != 0:
         detail = result.stderr.strip() or f"gh exited {result.returncode}"
-        raise GovernanceError(f"cannot read GitHub authority snapshot: {detail}")
+        raise AuthorityUnavailable(f"cannot read GitHub authority snapshot: {detail}")
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        raise GovernanceError("GitHub authority snapshot returned invalid JSON") from exc
+        raise AuthorityUnavailable("GitHub authority snapshot returned invalid JSON") from exc
     if not isinstance(payload, dict):
-        raise GovernanceError("GitHub authority snapshot returned a non-object")
+        raise AuthorityUnavailable("GitHub authority snapshot returned a non-object")
     if payload.get("errors"):
-        raise GovernanceError("GitHub authority snapshot returned GraphQL errors")
+        raise AuthorityUnavailable("GitHub authority snapshot returned GraphQL errors")
     return payload
 
 
@@ -356,7 +364,9 @@ def _connection(payload: dict[str, Any], name: str) -> list[dict[str, Any]]:
         return []
     page_info = value.get("pageInfo")
     if isinstance(page_info, dict) and page_info.get("hasNextPage") is True:
-        raise GovernanceError(f"GitHub authority snapshot is incomplete: {name} exceeds 100 nodes")
+        raise AuthorityIncomplete(
+            f"GitHub authority snapshot is incomplete: {name} exceeds 100 nodes"
+        )
     nodes = value.get("nodes")
     if not isinstance(nodes, list):
         return []
@@ -495,7 +505,7 @@ def _github_snapshots(items: list[dict[str, Any]]) -> dict[tuple[str, str, int],
     response = _github_graphql_fetch(items)
     data = response.get("data")
     if not isinstance(data, dict):
-        raise GovernanceError("GitHub authority snapshot lacks data")
+        raise AuthorityUnavailable("GitHub authority snapshot lacks data")
     snapshots: dict[tuple[str, str, int], dict[str, Any]] = {}
     for item in items:
         key = (str(item["repository"]), str(item["resource"]), int(item["number"]))
@@ -503,7 +513,7 @@ def _github_snapshots(items: list[dict[str, Any]]) -> dict[tuple[str, str, int],
         repository_payload = data.get(repository_alias)
         payload = repository_payload.get(authority_alias) if isinstance(repository_payload, dict) else None
         if not isinstance(payload, dict) or payload.get("number") != item["number"]:
-            raise GovernanceError(
+            raise AuthorityUnavailable(
                 f"GitHub authority snapshot is missing {item['repository']}#{item['number']}"
             )
         full, evidence = _github_graphql_projection(payload, str(item["resource"]))
@@ -778,7 +788,20 @@ def _authority_status(
     github_items = [
         item for item in state.get("authorities", []) if item.get("provider") == "github"
     ]
-    github_snapshots = _github_snapshots(github_items) if fetch_remote and github_items else {}
+    github_condition: Optional[str] = None
+    github_reason: Optional[str] = None
+    try:
+        github_snapshots = _github_snapshots(github_items) if fetch_remote and github_items else {}
+    except AuthorityIncomplete:
+        github_snapshots = {}
+        github_condition = "incomplete"
+        github_reason = "AUTHORITY_INCOMPLETE"
+        matches = False
+    except AuthorityUnavailable:
+        github_snapshots = {}
+        github_condition = "unavailable"
+        github_reason = "AUTHORITY_UNAVAILABLE"
+        matches = False
     for item in state.get("authorities", []):
         if item.get("provider") == "github":
             projection_version = str(
@@ -795,6 +818,25 @@ def _authority_status(
                         "url": item.get("url"),
                         "checked": False,
                         "completeness": "remote_check_required",
+                        "projection_version": projection_version,
+                        "checkpoint_sha256": item.get("sha256"),
+                        "current_sha256": None,
+                        "matches_checkpoint": None,
+                    }
+                )
+                continue
+            if github_condition is not None:
+                statuses.append(
+                    {
+                        "kind": item.get("kind"),
+                        "provider": "github",
+                        "resource": item.get("resource"),
+                        "repository": item.get("repository"),
+                        "number": item.get("number"),
+                        "url": item.get("url"),
+                        "checked": False,
+                        "completeness": github_condition,
+                        "reason_code": github_reason,
                         "projection_version": projection_version,
                         "checkpoint_sha256": item.get("sha256"),
                         "current_sha256": None,
@@ -850,6 +892,17 @@ def _authority_status(
             }
         )
     return matches, statuses
+
+
+def _authority_condition(statuses: list[dict[str, Any]]) -> str:
+    completeness = {str(item.get("completeness")) for item in statuses}
+    if "unavailable" in completeness:
+        return "unavailable"
+    if "incomplete" in completeness:
+        return "incomplete"
+    if "remote_check_required" in completeness:
+        return "remote_check_required"
+    return "complete"
 
 
 def _base_output(state: dict[str, Any]) -> dict[str, Any]:
@@ -969,11 +1022,15 @@ def _resume(args: argparse.Namespace) -> int:
         for item in statuses
         if item.get("matches_checkpoint") is False
     ]
-    completeness = (
-        "complete"
-        if all(item.get("completeness") == "complete" for item in statuses)
-        else "incomplete"
-    )
+    completeness = _authority_condition(statuses)
+    if completeness == "unavailable":
+        reason_code = "AUTHORITY_UNAVAILABLE"
+    elif completeness == "incomplete":
+        reason_code = "AUTHORITY_INCOMPLETE"
+    elif matches:
+        reason_code = "AUTHORITIES_MATCH"
+    else:
+        reason_code = "AUTHORITY_CHANGED"
     output.update(
         {
             "recovery_contract_version": "0.1",
@@ -981,8 +1038,15 @@ def _resume(args: argparse.Namespace) -> int:
             "authority_status": statuses,
             "drift": drift,
             "completeness": completeness,
+            "authority_verdict": (
+                "matched"
+                if matches
+                else "changed"
+                if completeness == "complete"
+                else "unknown"
+            ),
             "primary_action": "CONTINUE" if matches else "RECONCILE",
-            "reason_code": "AUTHORITIES_MATCH" if matches else "AUTHORITY_CHANGED",
+            "reason_code": reason_code,
             "blocking": False,
             "diagnostics": {
                 "total_ms": round((time.monotonic() - started) * 1000, 3),
@@ -991,6 +1055,10 @@ def _resume(args: argparse.Namespace) -> int:
         }
     )
     _print(output)
+    if completeness == "unavailable":
+        return 2
+    if completeness == "incomplete":
+        return 1
     return 1 if args.strict and not matches else 0
 
 
@@ -1005,11 +1073,16 @@ def _add_recommendation(
 
 
 def _decision_recommendations(
-    *, matches: bool, status: str, event: str, signals: list[str]
+    *,
+    matches: bool,
+    status: str,
+    event: str,
+    signals: list[str],
+    authority_reason: str = "AUTHORITY_CHANGED",
 ) -> list[dict[str, Any]]:
     recommendations: list[dict[str, Any]] = []
     if not matches:
-        _add_recommendation(recommendations, "RECONCILE", "AUTHORITY_CHANGED")
+        _add_recommendation(recommendations, "RECONCILE", authority_reason)
     signal_rules = {
         "goal-changed": ("UPDATE_SPEC", "GOAL_CHANGED"),
         "implementation-drift": ("CONVERGE", "IMPLEMENTATION_DRIFT"),
@@ -1044,12 +1117,18 @@ def _evaluate(args: argparse.Namespace) -> int:
     state = _read_state(_unit_path(root, args.work_unit))
     _require_actor(state, args.actor)
     matches, statuses = _authority_status(root, state)
+    completeness = _authority_condition(statuses)
+    authority_reason = {
+        "unavailable": "AUTHORITY_UNAVAILABLE",
+        "incomplete": "AUTHORITY_INCOMPLETE",
+    }.get(completeness, "AUTHORITY_CHANGED")
     signals = list(dict.fromkeys(args.signal))
     recommendations = _decision_recommendations(
         matches=matches,
         status=str(state.get("status")),
         event=args.event,
         signals=signals,
+        authority_reason=authority_reason,
     )
     output = _base_output(state)
     output.update(
@@ -1058,6 +1137,14 @@ def _evaluate(args: argparse.Namespace) -> int:
             "signals": signals,
             "authorities_match_checkpoint": matches,
             "authority_status": statuses,
+            "completeness": completeness,
+            "authority_verdict": (
+                "matched"
+                if matches
+                else "changed"
+                if completeness == "complete"
+                else "unknown"
+            ),
             "primary_action": recommendations[0]["action"],
             "recommendations": recommendations,
             "blocking": False,
@@ -1121,14 +1208,20 @@ def _close(args: argparse.Namespace) -> int:
             return 1
         matches, statuses = _authority_status(root, original)
         if not matches:
+            completeness = _authority_condition(statuses)
+            reason_code = {
+                "unavailable": "AUTHORITY_UNAVAILABLE",
+                "incomplete": "AUTHORITY_INCOMPLETE",
+            }.get(completeness, "AUTHORITY_CHANGED")
             _print(
                 {
                     "closed": False,
-                    "reason_code": "AUTHORITY_CHANGED",
+                    "reason_code": reason_code,
+                    "completeness": completeness,
                     "authority_status": statuses,
                 }
             )
-            return 1
+            return 2 if completeness == "unavailable" else 1
         state = _upgrade_state(original)
         closed_at = _now()
         state["status"] = "closed"

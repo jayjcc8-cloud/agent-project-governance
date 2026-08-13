@@ -96,7 +96,7 @@ python3 skills/context-governance/scripts/work_unit.py evaluate \
   --signal repeated-failure
 ```
 
-`resume` returns a recovery contract with completeness, drift identities, normalized authority evidence, a primary action, and per-command diagnostics. When the contract is complete, consumers should not repeat GitHub reads for fields already returned.
+`resume` returns a recovery contract with completeness, a three-valued `matched | changed | unknown` authority verdict, drift identities, normalized evidence, a primary action, and per-command diagnostics. Unavailable or incomplete remote evidence is never reported as matched and is never written to state. When the contract is complete, consumers should not repeat GitHub reads for fields already returned.
 
 The rule engine returns ordered actions such as `RECONCILE`, `UPDATE_SPEC`, `CONVERGE`, `CHECKPOINT`, `DEBUG_REVIEW`, `WORKTREE`, `NEW_THREAD`, or `CONTINUE`. Every recommendation includes a stable reason and `blocking: false`.
 

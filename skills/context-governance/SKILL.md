@@ -64,6 +64,8 @@ Reconcile changed authorities before continuing. Explicit resume and evaluate re
 
 `resume` returns a recovery contract with current authority evidence, drift identities, completeness, a primary action, and non-persisted diagnostics. GitHub Issue/PR authorities in one work unit are fetched as one composite snapshot. When `completeness` is `complete`, use the returned evidence and do not query GitHub again for fields already present. Query separately only for omitted material such as full comments or Actions logs.
 
+Treat `authority_verdict` as three-valued: `matched`, `changed`, or `unknown`. Remote transport/permission failure returns `completeness: unavailable` and exit `2`; bounded pagination overflow returns `completeness: incomplete` and exit `1`. Neither condition is drift, and neither may be treated as a successful freshness check. Reconcile the evidence path before continuing.
+
 ### Evaluate the next governance action
 
 ```bash
