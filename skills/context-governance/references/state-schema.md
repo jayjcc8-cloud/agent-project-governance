@@ -16,6 +16,8 @@ A checkpoint contains a monotonic sequence, timestamp, concise summary, one next
 
 Explicit `resume` emits current normalized GitHub evidence transiently as part of the recovery contract. Evidence and command timings are never written to state. Valid v0.3 GitHub entries are compared with the legacy `github-v1` projection until the next checkpoint promotes them atomically.
 
+The recovery contract uses `authority_verdict: matched | changed | unknown`. Remote unavailability and incomplete bounded connections produce `unknown`, leave per-authority `matches_checkpoint` null, and never populate the drift list. No failure result is persisted.
+
 Session bindings live under `.agent-runtime/session-bindings/<sha256>.json`. The filename hashes session and optional agent IDs. Bindings contain the exact work unit and actor and are not inherited by subagents.
 
 Invariants:

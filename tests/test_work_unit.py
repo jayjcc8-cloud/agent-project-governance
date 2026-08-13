@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import time
+import types
 import unittest
 from unittest import mock
 from pathlib import Path
@@ -819,6 +822,83 @@ class WorkUnitTests(unittest.TestCase):
             self.assertEqual(statuses[0]["projection_version"], "github-v1")
             self.assertTrue(statuses[0]["upgrade_available"])
             self.assertEqual(path.read_bytes(), before)
+
+    def test_unavailable_authority_is_unknown_and_never_reported_as_drift(self) -> None:
+        module = load_work_unit_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            path = self.state_path(root)
+            state = json.loads(path.read_text(encoding="utf-8"))
+            state["authorities"].append(
+                {
+                    "kind": "issue",
+                    "provider": "github",
+                    "resource": "issue",
+                    "repository": "acme/widget",
+                    "number": 3,
+                    "url": "https://github.com/acme/widget/issues/3",
+                    "projection_version": "github-v2",
+                    "sha256": "a" * 64,
+                }
+            )
+            path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+            before = path.read_bytes()
+            arguments = types.SimpleNamespace(
+                project_root=str(root),
+                work_unit="feature-001",
+                actor="main",
+                strict=True,
+            )
+            output = io.StringIO()
+            with mock.patch.object(
+                module,
+                "_github_graphql_fetch",
+                side_effect=module.AuthorityUnavailable("offline"),
+            ), contextlib.redirect_stdout(output):
+                return_code = module._resume(arguments)
+            result = json.loads(output.getvalue())
+            self.assertEqual(return_code, 2)
+            self.assertEqual(result["completeness"], "unavailable")
+            self.assertEqual(result["authority_verdict"], "unknown")
+            self.assertEqual(result["reason_code"], "AUTHORITY_UNAVAILABLE")
+            self.assertEqual(result["drift"], [])
+            self.assertIsNone(result["authority_status"][1]["matches_checkpoint"])
+            self.assertEqual(path.read_bytes(), before)
+
+    def test_incomplete_authority_is_unknown_and_recommends_reconcile(self) -> None:
+        module = load_work_unit_module()
+        authority = {
+            "kind": "issue",
+            "provider": "github",
+            "resource": "issue",
+            "repository": "acme/widget",
+            "number": 3,
+            "url": "https://github.com/acme/widget/issues/3",
+            "projection_version": "github-v2",
+            "sha256": "a" * 64,
+        }
+        with mock.patch.object(
+            module,
+            "_github_graphql_fetch",
+            side_effect=module.AuthorityIncomplete("too many labels"),
+        ):
+            matches, statuses = module._authority_status(
+                Path.cwd(), {"authorities": [authority]}
+            )
+        self.assertFalse(matches)
+        self.assertEqual(statuses[0]["completeness"], "incomplete")
+        self.assertEqual(statuses[0]["reason_code"], "AUTHORITY_INCOMPLETE")
+        self.assertIsNone(statuses[0]["matches_checkpoint"])
+        recommendations = module._decision_recommendations(
+            matches=matches,
+            status="active",
+            event="manual",
+            signals=[],
+            authority_reason="AUTHORITY_INCOMPLETE",
+        )
+        self.assertEqual(recommendations[0]["action"], "RECONCILE")
+        self.assertEqual(recommendations[0]["reason_code"], "AUTHORITY_INCOMPLETE")
 
     def test_migrate_v02_preserves_revision_and_checkpoint(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
