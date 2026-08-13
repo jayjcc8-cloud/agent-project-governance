@@ -118,6 +118,7 @@ Hooks are read-only and advisory:
 - They never checkpoint, continue a turn, block compaction, or perform a recommended action.
 - They read a work unit only after the current session has been explicitly bound.
 - A subagent never inherits the main session binding.
+- The POSIX launcher fails open when its pinned plugin directory or Python adapter is unavailable, so a retired build cannot block Stop or compaction.
 
 Review and trust the plugin hooks in Codex before they run. macOS and Linux hooks are supported in 0.3; Windows hook commands remain experimental. The core Python CLI supports Python 3.9+ on macOS, Linux, and Windows.
 
@@ -142,18 +143,18 @@ python3 /path/to/skill-creator/scripts/quick_validate.py skills/context-governan
 
 Real long-task trials determine whether the project advances to V1. Record recovery time, actor state leaks, and unnoticed authority changes using [the trial template](docs/trials.md).
 
-For local development updates, change the plugin cachebuster and run `codex plugin add` without first removing the active build. Existing Codex tasks pin their original cache path until they end.
+For local development updates, treat every cachebuster build as immutable. Add the new build before retiring an old one, and never run `codex plugin remove` while a task may still reference the installed cache path. Existing Codex tasks keep using their pinned build until they end; new tasks select the newly added build. Release validation executes the Hook launcher from the packaged ZIP and also simulates a missing retired build.
 
 ## Public installation and releases
 
 Add the public GitHub marketplace pinned to this release, then install the plugin:
 
 ```bash
-codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref v0.3.1
+codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref v0.3.2
 codex plugin add agent-project-governance@agent-project-governance
 ```
 
-The repository marketplace is pinned to the same tag as the plugin manifest. Pushing `v0.3.1` runs the release workflow, validates Python 3.9 syntax and package invariants, executes all tests, and publishes a deterministic ZIP plus SHA-256 to GitHub Releases. This public GitHub distribution is separate from submission to OpenAI's universal Plugins Directory.
+The repository marketplace is pinned to the same tag as the plugin manifest. Pushing `v0.3.2` runs the release workflow, validates Python 3.9 syntax and package invariants, executes all tests, and publishes a deterministic ZIP plus SHA-256 to GitHub Releases. This public GitHub distribution is separate from submission to OpenAI's universal Plugins Directory.
 
 ## License
 
