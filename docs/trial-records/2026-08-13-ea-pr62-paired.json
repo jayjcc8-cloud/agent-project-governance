@@ -1,0 +1,74 @@
+{
+  "schema_version": "0.3",
+  "trial_id": "2026-08-13-ea-pr62-paired",
+  "date": "2026-08-13",
+  "project": "jayjcc8-cloud/ea-quant",
+  "feature": "Issue #61 / PR #62 lifecycle coordinator",
+  "frozen_head": "43637b76ec23023e21afc56a38f9864e498ccb77",
+  "merge_commit": "a5c6eaef09142be62f07d37ef38120e706cfb0b7",
+  "plugin_version": "0.3.0+codex.20260811105542",
+  "controls": {
+    "isolated_worktrees": true,
+    "identical_recovery_prompt": true,
+    "clean_worktrees": 6,
+    "same_frozen_head": 6,
+    "github_writes": 0,
+    "source_or_spec_writes": 0
+  },
+  "expected_truth": {
+    "issue_61": "closed",
+    "pr_62": "merged",
+    "ci": "success",
+    "adr_0021": "Accepted",
+    "review_threads_total": 6,
+    "review_threads_unresolved": 0,
+    "unique_next_action": "close or leave the completed unit unchanged"
+  },
+  "baseline": {
+    "samples_seconds": [112.711, 117.869, 120.674],
+    "accurate_samples": 3,
+    "total_samples": 3
+  },
+  "governed": {
+    "samples_seconds": [121.829, 154.843, 145.954],
+    "accurate_samples": 3,
+    "total_samples": 3,
+    "configured_bindings": 3,
+    "bindings_resolved": 1,
+    "work_units_resumed_strictly": 1
+  },
+  "trial_summary": {
+    "baseline_median_seconds": 117.869,
+    "governed_median_seconds": 145.954,
+    "improvement_percent": -23.827299798929328,
+    "threshold_percent": 50.0,
+    "passed_relative_threshold": false,
+    "passed_absolute_five_minute_threshold": true,
+    "verdict": "effect_not_demonstrated"
+  },
+  "safety": {
+    "actor_state_leaks_observed": 0,
+    "cross_session_state_leaks_observed": 0,
+    "authority_changes_missed": "not_exercised_stable_snapshot"
+  },
+  "failure": {
+    "code": "ACTIVE_SESSION_BINDING_RESOLUTION_INCONSISTENT",
+    "detail": "The public CLI could create a binding but could not resolve the current task binding. One governed task used an internal helper successfully; two correctly refused to scan runtime files and recovered directly from authorities."
+  },
+  "post_fix_forward_test": {
+    "plugin_version": "0.3.0+codex.20260813133346",
+    "change": "Added read-only resolve-binding keyed by CODEX_THREAD_ID and optional agent ID, with no fallback.",
+    "samples_seconds": [142.422, 135.291, 133.699],
+    "median_seconds": 135.291,
+    "bindings_resolved": 3,
+    "work_units_resumed_strictly": 3,
+    "accurate_samples": 3,
+    "actor_state_leaks_observed": 0,
+    "improvement_percent_against_original_baseline": -14.780815990633666,
+    "passed_relative_threshold": false,
+    "passed_absolute_five_minute_threshold": true,
+    "verdict": "binding_reliability_fixed_effect_not_demonstrated",
+    "packaging_observation": "Removing the installed plugin before adding its cachebuster build deleted a cache path still pinned by active desktop tasks and caused repeated Stop-hook failures. Restoring the pinned path ended the loop. Development updates must add the new cachebuster without first removing the active version."
+  },
+  "conclusion": "Accuracy and isolation passed. The post-fix forward test made active-session binding resolution repeatable at 3/3, but the recovery-time effect threshold still failed. Do not promote the plugin from advisory shadow use to a production control gate on this evidence."
+}

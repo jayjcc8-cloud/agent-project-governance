@@ -7,7 +7,7 @@ Repository: [github.com/jayjcc8-cloud/agent-project-governance](https://github.c
 Version 0.3 is a developer preview with two workflows:
 
 - `project-bootstrap` previews and creates missing governance assets without overwriting project policy or installing dependencies.
-- `context-governance` checkpoints, resumes, evaluates, binds, migrates, and closes actor-owned work units under `.agent-runtime/`.
+- `context-governance` checkpoints, resumes, evaluates, binds, resolves bindings, migrates, and closes actor-owned work units under `.agent-runtime/`.
 
 ## Responsibility model
 
@@ -19,6 +19,8 @@ Version 0.3 is a developer preview with two workflows:
 | Agent Project Governance | WHEN/HOW TO CONTINUE: isolated runtime memory and advisory lifecycle decisions |
 
 The plugin never creates a competing task plan, copies task lists into runtime state, edits formal artifacts, spawns agents, creates worktrees, or runs converge.
+
+See [capability boundaries and production posture](docs/capability-boundaries.md) for the explicit supported/unsupported matrix and current shadow-pilot restriction.
 
 ## Project bootstrap
 
@@ -96,6 +98,16 @@ python3 skills/context-governance/scripts/work_unit.py evaluate \
 
 The rule engine returns ordered actions such as `RECONCILE`, `UPDATE_SPEC`, `CONVERGE`, `CHECKPOINT`, `DEBUG_REVIEW`, `WORKTREE`, `NEW_THREAD`, or `CONTINUE`. Every recommendation includes a stable reason and `blocking: false`.
 
+Resolve a binding for the current Codex task without scanning runtime files or guessing actor ownership:
+
+```bash
+python3 skills/context-governance/scripts/work_unit.py resolve-binding \
+  --project-root /path/to/project \
+  --session "$CODEX_THREAD_ID"
+```
+
+The command is read-only. It returns `0` with the exact binding, `1` when no active binding exists, and `2` for invalid state or input. Subagents must also pass their own `--agent-id`; resolution never falls back to a main-agent binding.
+
 ## Advisory hooks
 
 Codex discovers `hooks/hooks.json` automatically when the plugin is enabled. Hooks cover `SessionStart`, `PreCompact`, `SubagentStart`, `SubagentStop`, and `Stop`.
@@ -130,16 +142,18 @@ python3 /path/to/skill-creator/scripts/quick_validate.py skills/context-governan
 
 Real long-task trials determine whether the project advances to V1. Record recovery time, actor state leaks, and unnoticed authority changes using [the trial template](docs/trials.md).
 
+For local development updates, change the plugin cachebuster and run `codex plugin add` without first removing the active build. Existing Codex tasks pin their original cache path until they end.
+
 ## Public installation and releases
 
 Add the public GitHub marketplace pinned to this release, then install the plugin:
 
 ```bash
-codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref v0.3.0
+codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref v0.3.1
 codex plugin add agent-project-governance@agent-project-governance
 ```
 
-The repository marketplace is pinned to the same tag as the plugin manifest. Pushing `v0.3.0` runs the release workflow, validates Python 3.9 syntax and package invariants, executes all tests, and publishes a deterministic ZIP plus SHA-256 to GitHub Releases. This public GitHub distribution is separate from submission to OpenAI's universal Plugins Directory.
+The repository marketplace is pinned to the same tag as the plugin manifest. Pushing `v0.3.1` runs the release workflow, validates Python 3.9 syntax and package invariants, executes all tests, and publishes a deterministic ZIP plus SHA-256 to GitHub Releases. This public GitHub distribution is separate from submission to OpenAI's universal Plugins Directory.
 
 ## License
 

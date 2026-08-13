@@ -37,3 +37,7 @@ python3 skills/context-governance/scripts/trial_summary.py \
 ```
 
 Keep raw durations and the JSON result with the trial evidence. A `directional_benefit` verdict is not equivalent to meeting the effect threshold.
+
+Recorded trials:
+
+- [2026-08-13 EA Issue #61 / PR #62 paired recovery](trial-records/2026-08-13-ea-pr62-paired.md) — accuracy and isolation passed; recovery-time effect was not demonstrated.

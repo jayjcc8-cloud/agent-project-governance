@@ -362,6 +362,71 @@ class WorkUnitTests(unittest.TestCase):
             self.assertEqual(rejected.returncode, 2)
             self.assertIn("already bound", rejected.stderr)
 
+    def test_resolve_binding_is_read_only_and_actor_isolated(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            bound = self.run_cli(
+                root,
+                "bind",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--session",
+                "session-main",
+            )
+            self.assertEqual(bound.returncode, 0, bound.stderr)
+            runtime = root / ".agent-runtime"
+            before = {
+                path.relative_to(runtime): path.read_bytes()
+                for path in runtime.rglob("*.json")
+            }
+
+            resolved = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "resolve-binding",
+                    "--project-root",
+                    str(root),
+                    "--session",
+                    "session-main",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(resolved.returncode, 0, resolved.stderr)
+            result = json.loads(resolved.stdout)
+            self.assertTrue(result["found"])
+            self.assertEqual(result["binding"]["work_unit_id"], "feature-001")
+            self.assertEqual(result["binding"]["actor_id"], "main")
+
+            subagent = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "resolve-binding",
+                    "--project-root",
+                    str(root),
+                    "--session",
+                    "session-main",
+                    "--agent-id",
+                    "agent-1",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(subagent.returncode, 1, subagent.stderr)
+            self.assertEqual(json.loads(subagent.stdout)["reason_code"], "BINDING_NOT_FOUND")
+            after = {
+                path.relative_to(runtime): path.read_bytes()
+                for path in runtime.rglob("*.json")
+            }
+            self.assertEqual(after, before)
+
     def test_missing_mutation_does_not_create_runtime_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
