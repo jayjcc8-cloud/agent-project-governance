@@ -35,7 +35,7 @@ class DeliveryToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             archive = Path(directory) / "agent-project-governance.zip"
             count = packager.package(ROOT, archive)
-            result = validator.validate_archive(archive, "v0.3.2")
+            result = validator.validate_archive(archive, "v0.4.0")
         self.assertGreater(count, 0)
         self.assertTrue(result["archive_valid"], result)
         self.assertEqual(result["hook_commands_checked"], 5)
