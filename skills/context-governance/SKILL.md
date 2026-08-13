@@ -1,6 +1,6 @@
 ---
 name: context-governance
-description: Checkpoint, resume, evaluate, bind, migrate, and close actor-scoped AI work units without creating a second plan. Use for long-running coding tasks before compaction or handoff, after a crash or new session, when main agents and subagents need isolated runtime memory, when canonical local files or GitHub Issues/PRs may have changed, or when deciding whether to continue, delegate, converge, promote durable knowledge, or start a new work unit.
+description: Checkpoint, resume, evaluate, bind, resolve bindings, migrate, and close actor-scoped AI work units without creating a second plan. Use for long-running coding tasks before compaction or handoff, after a crash or new session, when main agents and subagents need isolated runtime memory, when canonical local files or GitHub Issues/PRs may have changed, or when deciding whether to continue, delegate, converge, promote durable knowledge, or start a new work unit.
 ---
 
 # Context Governance
@@ -88,6 +88,16 @@ python scripts/work_unit.py bind \
 ```
 
 For a subagent, also pass its `--agent-id` and use a distinct actor/work unit. Use `unbind` with the same identifiers to remove a binding.
+
+During an already-running Codex session, resolve only the current session's explicit binding before resume:
+
+```bash
+python scripts/work_unit.py resolve-binding \
+  --project-root /path/to/project \
+  --session "$CODEX_THREAD_ID"
+```
+
+Use the returned work-unit and actor IDs with `resume --strict`. Exit `1` means the current session is not bound, so recover directly from authorities or bind it explicitly. Never substitute a delegated source task ID for the current `CODEX_THREAD_ID`, never scan binding files, and never fall back from a subagent's `session + agent-id` key to a main-agent session key.
 
 ### Migrate or close
 

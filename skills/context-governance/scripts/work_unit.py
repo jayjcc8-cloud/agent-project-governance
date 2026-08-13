@@ -870,6 +870,37 @@ def _read_binding(
     return document
 
 
+def _resolve_binding(args: argparse.Namespace) -> int:
+    root = _project_root(args.project_root)
+    session = _external_identifier(args.session, "session ID")
+    agent = _external_identifier(args.agent_id, "agent ID") if args.agent_id else None
+    binding = _read_binding(root, session, agent)
+    if binding is None:
+        _print(
+            {
+                "found": False,
+                "reason_code": "BINDING_NOT_FOUND",
+                "session_id": session,
+                "agent_id": agent,
+            }
+        )
+        return 1
+    state = _read_state(_unit_path(root, str(binding["work_unit_id"])))
+    _require_actor(state, str(binding["actor_id"]))
+    if state.get("status") != "active":
+        _print(
+            {
+                "found": False,
+                "reason_code": "BOUND_WORK_UNIT_CLOSED",
+                "session_id": session,
+                "agent_id": agent,
+            }
+        )
+        return 1
+    _print({"found": True, "binding": binding})
+    return 0
+
+
 def _unbind(args: argparse.Namespace) -> int:
     root = _project_root(args.project_root)
     _identifier(args.work_unit, "work-unit ID")
@@ -900,6 +931,10 @@ def _parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     for name in ("init", "checkpoint", "resume", "evaluate", "migrate", "close", "bind", "unbind"):
         _add_common(subparsers.add_parser(name))
+    resolve_binding = subparsers.add_parser("resolve-binding")
+    resolve_binding.add_argument("--project-root", required=True)
+    resolve_binding.add_argument("--session", required=True)
+    resolve_binding.add_argument("--agent-id")
     initialize = subparsers.choices["init"]
     initialize.add_argument("--parent-work-unit")
     initialize.add_argument("--authority", nargs=2, action="append", default=[])
@@ -931,6 +966,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "migrate": _migrate,
         "close": _close,
         "bind": _bind,
+        "resolve-binding": _resolve_binding,
         "unbind": _unbind,
     }
     try:
