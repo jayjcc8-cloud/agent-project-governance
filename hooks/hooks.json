@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\"",
+            "command": "sh -c 'adapter=\"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\"; fallback=\"{\\\"continue\\\":true,\\\"systemMessage\\\":\\\"Context governance hook unavailable; continuing without governance advice.\\\"}\"; if command -v python3 >/dev/null 2>&1 && [ -r \"$adapter\" ]; then output=\"$(python3 \"$adapter\" 2>/dev/null)\" && [ -n \"$output\" ] && { printf \"%s\\n\" \"$output\"; exit 0; }; fi; printf \"%s\\n\" \"$fallback\"; exit 0'",
             "statusMessage": "Checking context governance state",
             "additionalContextLimit": 1500
           }
@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\"",
+            "command": "sh -c 'adapter=\"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\"; fallback=\"{\\\"continue\\\":true,\\\"systemMessage\\\":\\\"Context governance hook unavailable; continuing without governance advice.\\\"}\"; if command -v python3 >/dev/null 2>&1 && [ -r \"$adapter\" ]; then output=\"$(python3 \"$adapter\" 2>/dev/null)\" && [ -n \"$output\" ] && { printf \"%s\\n\" \"$output\"; exit 0; }; fi; printf \"%s\\n\" \"$fallback\"; exit 0'",
             "statusMessage": "Checking checkpoint readiness"
           }
         ]
@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\"",
+            "command": "sh -c 'adapter=\"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\"; fallback=\"{\\\"continue\\\":true,\\\"systemMessage\\\":\\\"Context governance hook unavailable; continuing without governance advice.\\\"}\"; if command -v python3 >/dev/null 2>&1 && [ -r \"$adapter\" ]; then output=\"$(python3 \"$adapter\" 2>/dev/null)\" && [ -n \"$output\" ] && { printf \"%s\\n\" \"$output\"; exit 0; }; fi; printf \"%s\\n\" \"$fallback\"; exit 0'",
             "additionalContextLimit": 1500
           }
         ]
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\""
+            "command": "sh -c 'adapter=\"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\"; fallback=\"{\\\"continue\\\":true,\\\"systemMessage\\\":\\\"Context governance hook unavailable; continuing without governance advice.\\\"}\"; if command -v python3 >/dev/null 2>&1 && [ -r \"$adapter\" ]; then output=\"$(python3 \"$adapter\" 2>/dev/null)\" && [ -n \"$output\" ] && { printf \"%s\\n\" \"$output\"; exit 0; }; fi; printf \"%s\\n\" \"$fallback\"; exit 0'"
           }
         ]
       }
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\""
+            "command": "sh -c 'adapter=\"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\"; fallback=\"{\\\"continue\\\":true,\\\"systemMessage\\\":\\\"Context governance hook unavailable; continuing without governance advice.\\\"}\"; if command -v python3 >/dev/null 2>&1 && [ -r \"$adapter\" ]; then output=\"$(python3 \"$adapter\" 2>/dev/null)\" && [ -n \"$output\" ] && { printf \"%s\\n\" \"$output\"; exit 0; }; fi; printf \"%s\\n\" \"$fallback\"; exit 0'"
           }
         ]
       }

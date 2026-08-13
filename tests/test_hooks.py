@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -32,6 +34,24 @@ class HookTests(unittest.TestCase):
             check=False,
             capture_output=True,
             text=True,
+        )
+
+    def run_hook_command(
+        self, plugin_root: Path, payload: dict[str, object]
+    ) -> subprocess.CompletedProcess[str]:
+        command = json.loads(HOOKS_JSON.read_text(encoding="utf-8"))["hooks"]["Stop"][0][
+            "hooks"
+        ][0]["command"]
+        environment = os.environ.copy()
+        environment["PLUGIN_ROOT"] = str(plugin_root)
+        return subprocess.run(
+            ["sh", "-c", command],
+            input=json.dumps(payload),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=environment,
         )
 
     def initialize_bound_unit(self, root: Path) -> None:
@@ -139,6 +159,29 @@ class HookTests(unittest.TestCase):
         self.assertTrue(output["continue"])
         self.assertNotIn("decision", output)
 
+    @unittest.skipIf(shutil.which("sh") is None, "POSIX hook launcher is not supported")
+    def test_hook_launcher_passes_through_adapter_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            payload = self.base_payload(Path(directory), "Stop")
+            result = self.run_hook_command(ROOT, payload)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output = json.loads(result.stdout)
+            self.assertTrue(output["continue"])
+            self.assertIn("No session-bound work unit", output["systemMessage"])
+
+    @unittest.skipIf(shutil.which("sh") is None, "POSIX hook launcher is not supported")
+    def test_hook_launcher_fails_open_after_plugin_directory_is_removed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            missing_plugin = Path(directory) / "retired-plugin-build"
+            payload = self.base_payload(Path(directory), "Stop")
+            for _ in range(100):
+                result = self.run_hook_command(missing_plugin, payload)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                output = json.loads(result.stdout)
+                self.assertTrue(output["continue"])
+                self.assertNotIn("decision", output)
+                self.assertIn("unavailable", output["systemMessage"])
+
     def test_hook_config_uses_default_discovery_and_advisory_events(self) -> None:
         manifest = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
         self.assertNotIn("hooks", manifest)
@@ -152,6 +195,8 @@ class HookTests(unittest.TestCase):
                 for hook in group["hooks"]:
                     self.assertEqual(hook["type"], "command")
                     self.assertIn("$PLUGIN_ROOT", hook["command"])
+                    self.assertTrue(hook["command"].startswith("sh -c"))
+                    self.assertIn("exit 0", hook["command"])
 
 
 if __name__ == "__main__":

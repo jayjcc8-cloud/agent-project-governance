@@ -22,7 +22,7 @@ Agent Project Governance is a local, advisory context-governance layer. It helps
 - GitHub Issue/PR authority digests do not currently cover review-thread resolution, comments, Actions logs, or arbitrary linked resources. Those require separate authoritative reads.
 - Advisory hooks do not make network requests and cannot prove remote authority freshness by themselves.
 - It cannot guarantee faster recovery. The first controlled EA trial was accurate and isolated but failed the 50% recovery-time improvement threshold.
-- It cannot hot-swap an already-running Codex task to a new plugin build. Tasks pin the cache path selected by their host; development updates must keep that path available until those tasks finish.
+- It cannot hot-swap an already-running Codex task to a new plugin build. Tasks pin the cache path selected by their host; updates must add an immutable new build before retiring an old one. If an old path disappears unexpectedly, the POSIX Hook launcher fails open without blocking the host action.
 - Windows core CLI support does not imply production-ready Windows hooks; Windows hooks remain experimental.
 
 ## Production posture
@@ -45,4 +45,4 @@ Do not yet use the plugin as:
 
 Promotion beyond shadow use requires repeatable binding resolution, a paired recovery trial meeting the declared effect threshold, an injected authority-drift trial, and the pinned Spec Kit/Superpowers/bridge handoff smoke.
 
-For local plugin iteration, update the cachebuster and run `codex plugin add` directly. Do not run `codex plugin remove` first while any task may still reference the installed cache path.
+For local plugin iteration, update the cachebuster and run `codex plugin add` directly. Do not run `codex plugin remove` first while any task may still reference the installed cache path. The package validator exercises both the installed adapter path and a simulated missing old path, but only the Codex host can determine when every active task has released a cache reference.

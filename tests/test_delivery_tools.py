@@ -11,6 +11,8 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 TRIAL_SUMMARY = ROOT / "skills" / "context-governance" / "scripts" / "trial_summary.py"
 COMPATIBILITY_SMOKE = ROOT / "skills" / "project-bootstrap" / "scripts" / "compatibility_smoke.py"
+PACKAGE_RELEASE = ROOT / "scripts" / "package_release.py"
+VALIDATE_PACKAGE = ROOT / "scripts" / "validate_package.py"
 
 
 def load_module(name: str, path: Path):
@@ -27,6 +29,17 @@ def load_module(name: str, path: Path):
 
 
 class DeliveryToolTests(unittest.TestCase):
+    def test_release_archive_is_validated_from_extracted_plugin(self) -> None:
+        packager = load_module("package_release_test", PACKAGE_RELEASE)
+        validator = load_module("validate_package_archive_test", VALIDATE_PACKAGE)
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "agent-project-governance.zip"
+            count = packager.package(ROOT, archive)
+            result = validator.validate_archive(archive, "v0.3.2")
+        self.assertGreater(count, 0)
+        self.assertTrue(result["archive_valid"], result)
+        self.assertEqual(result["hook_commands_checked"], 5)
+
     def test_trial_summary_applies_relative_and_absolute_thresholds(self) -> None:
         module = load_module("trial_summary_test", TRIAL_SUMMARY)
         directional = module.summarize(
