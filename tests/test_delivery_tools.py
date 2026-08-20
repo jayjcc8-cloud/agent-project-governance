@@ -35,10 +35,23 @@ class DeliveryToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             archive = Path(directory) / "agent-project-governance.zip"
             count = packager.package(ROOT, archive)
-            result = validator.validate_archive(archive, "v0.4.0")
+            result = validator.validate_archive(archive, "v0.4.1")
         self.assertGreater(count, 0)
         self.assertTrue(result["archive_valid"], result)
         self.assertEqual(result["hook_commands_checked"], 5)
+
+    def test_release_checksum_uses_downloadable_asset_basename(self) -> None:
+        validator = load_module("validate_package_release_workflow_test", VALIDATE_PACKAGE)
+        valid = (
+            'sha256sum "agent-project-governance-${GITHUB_REF_NAME}.zip" '
+            '> "agent-project-governance-${GITHUB_REF_NAME}.zip.sha256"\n--prerelease'
+        )
+        validator._validate_release_workflow(valid)
+        with self.assertRaisesRegex(validator.ValidationError, "portable asset basename"):
+            validator._validate_release_workflow(
+                'sha256sum "dist/agent-project-governance-${GITHUB_REF_NAME}.zip"\n'
+                '--prerelease'
+            )
 
     def test_trial_summary_applies_relative_and_absolute_thresholds(self) -> None:
         module = load_module("trial_summary_test", TRIAL_SUMMARY)

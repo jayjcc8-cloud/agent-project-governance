@@ -25,7 +25,8 @@ jobs:
           mkdir -p dist
           python scripts/package_release.py --output "dist/agent-project-governance-${GITHUB_REF_NAME}.zip"
           python scripts/validate_package.py --archive "dist/agent-project-governance-${GITHUB_REF_NAME}.zip" --tag "${GITHUB_REF_NAME}"
-          sha256sum "dist/agent-project-governance-${GITHUB_REF_NAME}.zip" > "dist/agent-project-governance-${GITHUB_REF_NAME}.zip.sha256"
+          cd dist
+          sha256sum "agent-project-governance-${GITHUB_REF_NAME}.zip" > "agent-project-governance-${GITHUB_REF_NAME}.zip.sha256"
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
