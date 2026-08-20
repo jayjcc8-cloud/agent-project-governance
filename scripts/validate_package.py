@@ -35,6 +35,15 @@ class ValidationError(RuntimeError):
     pass
 
 
+def _validate_release_workflow(release_workflow: str) -> None:
+    if "--prerelease" not in release_workflow:
+        raise ValidationError("developer-preview releases must be marked as prereleases")
+    if 'sha256sum "dist/' in release_workflow:
+        raise ValidationError("release checksum must contain a portable asset basename")
+    if 'sha256sum "agent-project-governance-${GITHUB_REF_NAME}.zip"' not in release_workflow:
+        raise ValidationError("release workflow must checksum the downloadable asset basename")
+
+
 def _object(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -188,8 +197,7 @@ def validate(
         release_workflow = (root / ".github" / "workflows" / "release.yml").read_text(
             encoding="utf-8"
         )
-        if "--prerelease" not in release_workflow:
-            raise ValidationError("developer-preview releases must be marked as prereleases")
+        _validate_release_workflow(release_workflow)
     hook_runs = _exercise_hooks(root) if exercise_hooks else 0
     return {
         "valid": True,

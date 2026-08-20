@@ -152,11 +152,11 @@ For local development updates, treat every cachebuster build as immutable. Do no
 Add the public GitHub marketplace pinned to this release, then install the plugin:
 
 ```bash
-codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref v0.4.0
+codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref v0.4.1
 codex plugin add agent-project-governance@agent-project-governance
 ```
 
-The repository marketplace is pinned to the same tag as the plugin manifest. Pushing `v0.4.0` runs the release workflow, validates Python 3.9 syntax and package invariants, executes all tests, and publishes a deterministic ZIP plus SHA-256 to GitHub Releases. This public GitHub distribution is separate from submission to OpenAI's universal Plugins Directory.
+The repository marketplace is pinned to the same tag as the plugin manifest. Pushing `v0.4.1` runs the release workflow, validates Python 3.9 syntax and package invariants, executes all tests, and publishes a deterministic ZIP plus a portable SHA-256 file to GitHub Releases. The v0.4.0 ZIP is valid, but its checksum file recorded the build-time `dist/` path; v0.4.1 corrects the downloaded-asset verification workflow without replacing the historical release. This public GitHub distribution is separate from submission to OpenAI's universal Plugins Directory.
 
 ## License
 
