@@ -38,7 +38,31 @@ def _load_object(path: str, label: str) -> dict[str, Any]:
 
 def _evidence_true(value: dict[str, Any], *, kind: str) -> bool:
     if kind == "readiness":
-        return value.get("ready") is True or value.get("status") in {"ready", "verified", "ok"}
+        if value.get("ready") is True or value.get("status") in {"ready", "verified", "ok"}:
+            return True
+        # Bridge v1.1.0 emits its readiness verdict as a structured
+        # ``overall_status`` report. Before the first feature exists, the
+        # bridge state is intentionally ``warning`` (no handoff yet) even
+        # though the installation is ready. Accept that lifecycle state only
+        # when every install-level component is independently ready.
+        component_statuses = {
+            name: value.get(name, {}).get("status")
+            for name in ("required_tools", "namespace", "package_files", "agents")
+            if isinstance(value.get(name), dict)
+        }
+        bridge_state = value.get("bridge_state")
+        return (
+            set(component_statuses) == {
+                "required_tools",
+                "namespace",
+                "package_files",
+                "agents",
+            }
+            and all(status == "ready" for status in component_statuses.values())
+            and isinstance(bridge_state, dict)
+            and bridge_state.get("status") in {"ready", "warning"}
+            and value.get("overall_status") in {"ready", "warning"}
+        )
     return value.get("complete") is True or value.get("status") in {"complete", "completed"}
 
 

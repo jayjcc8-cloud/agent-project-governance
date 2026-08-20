@@ -22,7 +22,7 @@ Use `scripts/work_unit.py` for every runtime read and write. Pass the project ro
 ### Initialize
 
 ```bash
-python scripts/work_unit.py init \
+python3 scripts/work_unit.py init \
   --project-root /path/to/project \
   --work-unit feature-001 \
   --actor main \
@@ -32,7 +32,7 @@ python scripts/work_unit.py init \
 Add a GitHub Issue or PR authority only with its canonical public URL. The command uses authenticated `gh api` access, normalizes stable governance fields, and stores only the identifier and SHA-256:
 
 ```bash
-python scripts/work_unit.py init \
+python3 scripts/work_unit.py init \
   --project-root /path/to/project \
   --work-unit feature-001 \
   --actor main \
@@ -45,7 +45,7 @@ Use a distinct work unit and actor for every subagent or reviewer. Add `--parent
 ### Checkpoint and resume
 
 ```bash
-python scripts/work_unit.py checkpoint \
+python3 scripts/work_unit.py checkpoint \
   --project-root /path/to/project \
   --work-unit feature-001 \
   --actor main \
@@ -53,7 +53,7 @@ python scripts/work_unit.py checkpoint \
   --next-action "Run the pinned integration smoke test." \
   --finding "Spec Kit tasks.md remains authoritative."
 
-python scripts/work_unit.py resume \
+python3 scripts/work_unit.py resume \
   --project-root /path/to/project \
   --work-unit feature-001 \
   --actor main \
@@ -62,14 +62,14 @@ python scripts/work_unit.py resume \
 
 Reconcile changed authorities before continuing. Explicit resume and evaluate refresh GitHub evidence; advisory hooks never make network requests. A read-only resume never upgrades legacy state.
 
-`resume` returns a recovery contract with current authority evidence, drift identities, completeness, a primary action, and non-persisted diagnostics. GitHub Issue/PR authorities in one work unit are fetched as one composite snapshot. When `completeness` is `complete`, use the returned evidence and do not query GitHub again for fields already present. Query separately only for omitted material such as full comments or Actions logs.
+`resume` returns a recovery contract with current authority evidence, transient git workspace identity, drift identities, completeness, a primary action, and non-persisted diagnostics. GitHub Issue/PR authorities in one work unit are fetched as one composite snapshot. When `completeness` is `complete` and `authority_verdict` is `matched`, treat the checkpoint summary, next action, findings, returned workspace identity, and returned authority evidence as the recovery evidence: do not reread local authorities or query GitHub again for facts already asserted there. Query separately only for material that is absent from both the checkpoint and returned evidence, such as full comments or Actions logs.
 
 Treat `authority_verdict` as three-valued: `matched`, `changed`, or `unknown`. Remote transport/permission failure returns `completeness: unavailable` and exit `2`; bounded pagination overflow returns `completeness: incomplete` and exit `1`. Neither condition is drift, and neither may be treated as a successful freshness check. Reconcile the evidence path before continuing.
 
 ### Evaluate the next governance action
 
 ```bash
-python scripts/work_unit.py evaluate \
+python3 scripts/work_unit.py evaluate \
   --project-root /path/to/project \
   --work-unit feature-001 \
   --actor main \
@@ -84,7 +84,7 @@ Treat `primary_action` and `recommendations` as advisory. Read [references/decis
 When a SessionStart hook supplies a session ID, bind it only after selecting the correct work unit:
 
 ```bash
-python scripts/work_unit.py bind \
+python3 scripts/work_unit.py bind \
   --project-root /path/to/project \
   --work-unit feature-001 \
   --actor main \
@@ -96,7 +96,7 @@ For a subagent, also pass its `--agent-id` and use a distinct actor/work unit. U
 During an already-running Codex session, resolve only the current session's explicit binding before resume:
 
 ```bash
-python scripts/work_unit.py resolve-binding \
+python3 scripts/work_unit.py resolve-binding \
   --project-root /path/to/project \
   --session "$CODEX_THREAD_ID"
 ```

@@ -1,0 +1,72 @@
+{
+  "schema_version": "0.4",
+  "trial_id": "2026-08-20-pinned-handoff-smoke",
+  "date": "2026-08-20",
+  "project": "disposable greeting CLI",
+  "plugin_version": "0.4.0+codex.20260820091043",
+  "dependencies": {
+    "spec_kit": "0.11.1",
+    "superpowers": "6.0.0",
+    "speckit_superpowers_bridge": "1.1.0"
+  },
+  "environment": {
+    "host": "macOS arm64",
+    "host_python": "3.9.6",
+    "linux_probe": "python:3.11-slim container",
+    "external_writes": 0,
+    "github_writes": 0
+  },
+  "compatibility_smoke": {
+    "passed": true,
+    "pinned_dependencies_verified": true,
+    "bridge_readiness_verified": true,
+    "handoff_completed": true,
+    "governance_lifecycle": true
+  },
+  "governance": {
+    "schema_version": "0.4",
+    "strict_resume": true,
+    "actor_isolation": true,
+    "authority_drift": true,
+    "close": true,
+    "work_unit_closed": true
+  },
+  "handoff": {
+    "status": "complete",
+    "executor": "superpowers",
+    "tasks_completed": 8,
+    "tasks_pending": 0,
+    "tests_passed": 8,
+    "tests_failed": 0,
+    "final_review": "approved",
+    "bridge_files_byte_identical": 21
+  },
+  "observations": [
+    {
+      "code": "BRIDGE_READINESS_SCHEMA_MISMATCH",
+      "status": "fixed_in_project",
+      "detail": "The verifier did not accept Bridge v1.1.0 native overall_status and component readiness JSON."
+    },
+    {
+      "code": "BRIDGE_MACOS_GNU_REALPATH_DEPENDENCY",
+      "status": "external_platform_limit",
+      "detail": "The pinned bash lifecycle calls realpath -m, which fails with macOS BSD realpath; Linux succeeded and the host run used an audited compatibility command without modifying Bridge files."
+    },
+    {
+      "code": "SUPERPOWERS_TASK_BRIEF_FORMAT_MISMATCH",
+      "status": "external_integration_limit",
+      "detail": "Superpowers 6.0.0 task-brief expects Task N headings and cannot directly extract Spec Kit TNNN checklist rows."
+    },
+    {
+      "code": "CODEX_PLUGIN_ADD_PRUNES_OLD_CACHE",
+      "status": "host_lifecycle_limit",
+      "detail": "Installing the 0.4 cachebuster removed older cache directories even without plugin remove; the two active historical paths were restored and verified."
+    }
+  ],
+    "release_gate": {
+        "pinned_handoff_smoke": "passed",
+        "second_ea_paired_recovery_trial": "passed_predeclared_original_baseline_slo",
+        "authority_drift_fault_matrix": "passed",
+        "v0_4_release": "eligible_for_limited_advisory_pilot"
+    }
+}

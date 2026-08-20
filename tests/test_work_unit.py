@@ -135,8 +135,27 @@ class WorkUnitTests(unittest.TestCase):
             self.assertEqual(result["recovery_contract_version"], "0.1")
             self.assertEqual(result["completeness"], "complete")
             self.assertEqual(result["primary_action"], "CONTINUE")
+            self.assertIn("workspace", result)
+            self.assertFalse(result["workspace"]["checked"])
             self.assertFalse(result["diagnostics"]["persisted"])
             self.assertEqual(tasks.read_text(encoding="utf-8"), "- [ ] T001 Build the feature\n")
+
+    def test_workspace_evidence_is_transient_and_disables_git_locks(self) -> None:
+        module = load_work_unit_module()
+        responses = [
+            subprocess.CompletedProcess(["git"], 0, "a" * 40 + "\n", ""),
+            subprocess.CompletedProcess(["git"], 0, "", ""),
+        ]
+        with mock.patch.object(module.subprocess, "run", side_effect=responses) as run:
+            evidence = module._workspace_evidence(Path.cwd())
+        self.assertEqual(
+            evidence,
+            {"checked": True, "head": "a" * 40, "clean": True},
+        )
+        self.assertEqual(run.call_count, 2)
+        for call in run.call_args_list:
+            self.assertEqual(call.kwargs["env"]["GIT_OPTIONAL_LOCKS"], "0")
+        self.assertIn(":(exclude).agent-runtime", run.call_args_list[1].args[0])
 
     def test_actor_cannot_read_another_work_unit(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -660,6 +679,7 @@ class WorkUnitTests(unittest.TestCase):
             "headRefOid": "b" * 40,
             "isDraft": False,
             "mergedAt": None,
+            "mergeCommit": {"oid": "c" * 40},
             "reviewThreads": {
                 "nodes": [{"id": "thread-1", "isResolved": False, "isOutdated": False}],
                 "pageInfo": {"hasNextPage": False},
@@ -709,6 +729,7 @@ class WorkUnitTests(unittest.TestCase):
         self.assertEqual(
             pull_status["evidence"]["status_check_rollup"]["state"], "success"
         )
+        self.assertEqual(pull_status["evidence"]["merge_commit"], "c" * 40)
         changed = copy.deepcopy(response)
         changed["data"]["repository0"]["authority1"]["reviewThreads"]["nodes"][0][
             "isResolved"

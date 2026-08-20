@@ -17,7 +17,7 @@ Run this protocol in a disposable repository. Installation is intentionally manu
 6. Run `project-bootstrap check` and confirm all three dependencies are `verified`.
 7. Initialize, checkpoint, bind, resume, evaluate, and close one governance work unit around that handoff.
 
-Save the bridge readiness and handoff results as JSON objects, then run the executable verifier. It requires exact pinned dependency versions and independently exercises checkpoint, bind, strict resume, authority drift, `RECONCILE`, actor isolation, and close:
+Save the raw bridge readiness and handoff results as JSON objects, then run the executable verifier. The readiness input may be the native v1.1.0 `--readiness --json` output; the verifier accepts the expected pre-feature `bridge_state: warning` only when tools, namespace, package files, and agent metadata are all independently `ready`. It requires exact pinned dependency versions and independently exercises checkpoint, bind, strict resume, authority drift, `RECONCILE`, actor isolation, and close:
 
 ```bash
 python3 skills/project-bootstrap/scripts/compatibility_smoke.py \
@@ -28,6 +28,8 @@ python3 skills/project-bootstrap/scripts/compatibility_smoke.py \
 ```
 
 Exit `0` means the full evidence gate passed, `1` means a readiness condition is unmet, and `2` means the evidence or invocation is invalid. The verifier never installs dependencies.
+
+The pinned baseline passed end to end on 2026-08-20. Bridge v1.1.0's bash lifecycle scripts require GNU-compatible `realpath -m`; run them on the verified Linux platform or provide an audited compatibility command on macOS without modifying the pinned extension. See the recorded trial for the exact evidence and observed integration limits.
 
 ## Newer upstream versions
 

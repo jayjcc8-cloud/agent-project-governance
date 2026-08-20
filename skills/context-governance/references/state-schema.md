@@ -14,7 +14,7 @@ Required fields:
 
 A checkpoint contains a monotonic sequence, timestamp, concise summary, one next action, and bounded findings and failed attempts. Local file contents, GitHub Issue/PR contents, task lists, decisions from `evaluate`, and chat transcripts are forbidden. GitHub `github-v2` digests cover stable Issue/PR governance fields plus PR review-thread resolution and status-check rollups. They exclude volatile transport metadata such as update timestamps, comment counts, reactions, and Actions logs.
 
-Explicit `resume` emits current normalized GitHub evidence transiently as part of the recovery contract. Evidence and command timings are never written to state. Valid v0.3 GitHub entries are compared with the legacy `github-v1` projection until the next checkpoint promotes them atomically.
+Explicit `resume` emits current normalized GitHub evidence and read-only git HEAD/cleanliness transiently as part of the recovery contract. Evidence and command timings are never written to state. Valid v0.3 GitHub entries are compared with the legacy `github-v1` projection until the next checkpoint promotes them atomically.
 
 The recovery contract uses `authority_verdict: matched | changed | unknown`. Remote unavailability and incomplete bounded connections produce `unknown`, leave per-authority `matches_checkpoint` null, and never populate the drift list. No failure result is persisted.
 

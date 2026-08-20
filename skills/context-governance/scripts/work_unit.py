@@ -287,6 +287,7 @@ def _github_selection(resource: str) -> str:
         return common + " stateReason"
     return common + """
         baseRefName baseRefOid headRefName headRefOid isDraft mergedAt
+        mergeCommit { oid }
         reviewThreads(first: 100) {
           nodes { id isResolved isOutdated }
           pageInfo { hasNextPage }
@@ -467,6 +468,11 @@ def _github_graphql_projection(payload: dict[str, Any], resource: str) -> tuple[
             "head": core["head"],
             "draft": core["draft"],
             "merged_at": core["merged_at"],
+            "merge_commit": (
+                payload.get("mergeCommit", {}).get("oid")
+                if isinstance(payload.get("mergeCommit"), dict)
+                else None
+            ),
             "review_threads": {
                 "total": len(review_threads),
                 "unresolved": sum(1 for item in review_threads if item.get("resolved") is False),
@@ -475,6 +481,48 @@ def _github_graphql_projection(payload: dict[str, Any], resource: str) -> tuple[
         }
     )
     return full, evidence
+
+
+def _workspace_evidence(root: Path) -> dict[str, Any]:
+    """Return transient git identity without mutating governance state."""
+    environment = os.environ.copy()
+    environment["GIT_OPTIONAL_LOCKS"] = "0"
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        status = subprocess.run(
+            [
+                "git",
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all",
+                "--",
+                ".",
+                ":(exclude).agent-runtime",
+            ],
+            cwd=root,
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"checked": False, "head": None, "clean": None, "error": str(exc)}
+    if head.returncode != 0 or status.returncode != 0:
+        return {"checked": False, "head": None, "clean": None}
+    return {
+        "checked": True,
+        "head": head.stdout.strip(),
+        "clean": not bool(status.stdout.strip()),
+    }
 
 
 def _github_legacy_projection(full: dict[str, Any], resource: str) -> dict[str, Any]:
@@ -1045,6 +1093,7 @@ def _resume(args: argparse.Namespace) -> int:
                 if completeness == "complete"
                 else "unknown"
             ),
+            "workspace": _workspace_evidence(root),
             "primary_action": "CONTINUE" if matches else "RECONCILE",
             "reason_code": reason_code,
             "blocking": False,

@@ -41,3 +41,5 @@ Keep raw durations and the JSON result with the trial evidence. A `directional_b
 Recorded trials:
 
 - [2026-08-13 EA Issue #61 / PR #62 paired recovery](trial-records/2026-08-13-ea-pr62-paired.md) — accuracy and isolation passed; recovery-time effect was not demonstrated.
+- [2026-08-20 pinned handoff compatibility smoke](trial-records/2026-08-20-pinned-handoff-smoke.md) — exact dependency, handoff, and governance lifecycle gates passed; macOS and cache-retention limits were exposed.
+- [2026-08-20 EA v0.4 recovery trial and forward test](trial-records/2026-08-20-ea-v04-recovery-forward.md) — binding/isolation and drift checks passed; the predeclared original-baseline recovery SLO passed at 53.412%, while the same-day comparison remained directional at 39.175%.
