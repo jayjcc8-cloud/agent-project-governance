@@ -143,9 +143,9 @@ python3 /path/to/skill-creator/scripts/quick_validate.py skills/project-bootstra
 python3 /path/to/skill-creator/scripts/quick_validate.py skills/context-governance
 ```
 
-Real long-task trials determine whether the project advances to V1. Record recovery time, actor state leaks, and unnoticed authority changes using [the trial template](docs/trials.md).
+Real long-task trials determine whether the project advances to V1. The 2026-08-20 EA forward test met the predeclared original-baseline recovery SLO and passed the injected drift matrix, permitting a limited human-reviewed advisory pilot; it does not authorize blocking or autonomous use. Record recovery time, actor state leaks, and unnoticed authority changes using [the trial template](docs/trials.md).
 
-For local development updates, treat every cachebuster build as immutable. Add the new build before retiring an old one, and never run `codex plugin remove` while a task may still reference the installed cache path. Existing Codex tasks keep using their pinned build until they end; new tasks select the newly added build. Release validation executes the Hook launcher from the packaged ZIP and also simulates a missing retired build.
+For local development updates, treat every cachebuster build as immutable. Do not update an installed plugin while any task may still reference its current cache path: Codex CLI `plugin add` was observed removing older cache directories even without a preceding `plugin remove`. Existing tasks cannot be hot-swapped and may call their pinned Hook path later. Update only after those tasks end, or preserve and explicitly verify every pinned cache path before resuming them. Release validation executes the Hook launcher from the packaged ZIP and simulates a missing retired build, but fail-open behavior is not uninterrupted cache retention.
 
 ## Public installation and releases
 

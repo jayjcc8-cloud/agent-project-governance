@@ -1,0 +1,113 @@
+{
+  "schema_version": "0.4",
+  "trial_id": "2026-08-20-ea-v04-recovery-forward",
+  "date": "2026-08-20",
+  "project": "jayjcc8-cloud/ea-quant",
+  "feature": "Issue #61 / PR #62 frozen recovery",
+  "frozen_head": "462951e44071305161be74c3570a7a914ac49906",
+  "controls": {
+    "isolated_worktrees": 9,
+    "identical_recovery_prompt": true,
+    "clean_worktrees_at_start": 9,
+    "github_writes": 0,
+    "source_or_spec_writes_during_timed_runs": 0,
+    "tests_run_during_timed_runs": 0
+  },
+  "expected_truth": {
+    "issue_61": "closed",
+    "pr_62": "merged",
+    "merge_commit": "a5c6eaef09142be62f07d37ef38120e706cfb0b7",
+    "ci": "success",
+    "adr_0021": "Accepted",
+    "review_threads_total": 6,
+    "review_threads_unresolved": 0,
+    "unique_next_action": "stop and leave the completed work unit unchanged"
+  },
+  "paired_run_before_recovery_contract_fix": {
+    "plugin_version": "0.4.0+codex.20260820091043",
+    "baseline": {
+      "samples_seconds": [100.226, 83.445, 90.28],
+      "median_seconds": 90.28,
+      "accurate_samples": 3,
+      "total_samples": 3
+    },
+    "governed": {
+      "samples_seconds": [78.375, 78.909, 69.684],
+      "median_seconds": 78.375,
+      "accurate_samples": 3,
+      "total_samples": 3,
+      "bindings_resolved": 3,
+      "strict_resumes_complete": 3
+    },
+    "improvement_percent": 13.18675232609659,
+    "threshold_percent": 50.0,
+    "verdict": "directional_benefit",
+    "defects": [
+      "SKILL_EXAMPLE_USED_MISSING_PYTHON_ALIAS",
+      "RECOVERY_CONTRACT_OMITTED_WORKSPACE_IDENTITY",
+      "RECOVERY_CONTRACT_OMITTED_PR_MERGE_COMMIT",
+      "MATCHED_CHECKPOINT_FACTS_WERE_REREAD"
+    ]
+  },
+  "forward_test_after_recovery_contract_fix": {
+    "plugin_version": "0.4.0+codex.20260820094257",
+    "changes": [
+      "Use python3 in both public Skill command examples",
+      "Return transient git HEAD and cleanliness from resume",
+      "Return PR merge commit in composite GitHub evidence",
+      "Direct matched complete resumes to reuse checkpoint facts without duplicate reads"
+    ],
+    "samples_seconds": [52.918, 54.913, 91.486],
+    "median_seconds": 54.913,
+    "accurate_samples": 3,
+    "total_samples": 3,
+    "bindings_resolved": 3,
+    "native_strict_resumes_complete": 2,
+    "safe_remote_fallbacks": 1,
+    "actor_state_leaks_observed": 0,
+    "authority_changes_missed": 0,
+    "comparison_to_predeclared_original_baseline": {
+      "baseline_samples_seconds": [112.711, 117.869, 120.674],
+      "baseline_median_seconds": 117.869,
+      "improvement_percent": 53.41183856654421,
+      "threshold_percent": 50.0,
+      "passed_relative_threshold": true,
+      "verdict": "effect_threshold_met"
+    },
+    "comparison_to_same_day_baseline": {
+      "baseline_samples_seconds": [100.226, 83.445, 90.28],
+      "baseline_median_seconds": 90.28,
+      "improvement_percent": 39.17478954364201,
+      "threshold_percent": 50.0,
+      "passed_relative_threshold": false,
+      "verdict": "directional_benefit"
+    }
+  },
+  "fault_matrix": {
+    "local_authority_changed": {
+      "injection": "temporary-copy README edit",
+      "exit_code": 1,
+      "authority_verdict": "changed",
+      "primary_action": "RECONCILE",
+      "drift_identity": "README.md",
+      "passed": true
+    },
+    "remote_authority_unavailable": {
+      "injection": "gh removed from PATH in a temporary clean copy",
+      "exit_code": 2,
+      "authority_verdict": "unknown",
+      "primary_action": "RECONCILE",
+      "drift_count": 0,
+      "passed": true
+    }
+  },
+  "release_decision": {
+    "predeclared_original_baseline_slo": "passed",
+    "same_day_relative_effect": "directional_benefit_below_50_percent",
+    "binding_isolation": "passed",
+    "authority_drift_fault_matrix": "passed",
+    "pinned_handoff_smoke": "passed",
+    "v0_4_status": "eligible_for_limited_advisory_pilot",
+    "autonomous_or_blocking_use": "not_authorized"
+  }
+}

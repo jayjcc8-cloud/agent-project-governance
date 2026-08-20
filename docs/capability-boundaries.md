@@ -22,8 +22,8 @@ Agent Project Governance is a local, advisory context-governance layer. It helps
 - GitHub Issue/PR `github-v2` authority digests cover review-thread resolution and status-check rollups, but not full comments, Actions logs, or arbitrary linked resources. Those require separate authoritative reads.
 - A GitHub transport, permission, or bounded-pagination failure is reported as an unknown authority verdict, never as unchanged evidence. The CLI remains unable to prove freshness until a later explicit check succeeds.
 - Advisory hooks do not make network requests and cannot prove remote authority freshness by themselves.
-- It cannot guarantee faster recovery. The first controlled EA trial was accurate and isolated but failed the 50% recovery-time improvement threshold.
-- It cannot hot-swap an already-running Codex task to a new plugin build. Tasks pin the cache path selected by their host; updates must add an immutable new build before retiring an old one. If an old path disappears unexpectedly, the POSIX Hook launcher fails open without blocking the host action.
+- It cannot guarantee faster recovery in every environment. The v0.4 forward test met the predeclared original-baseline threshold with a 53.412% median improvement, but the same-day comparison improved 39.175% and one remote-unavailable tail sample required a safe fallback.
+- It cannot hot-swap an already-running Codex task to a new plugin build. Tasks pin the cache path selected by their host, and Codex CLI `plugin add` may garbage-collect older cache directories. If an old path disappears unexpectedly, the POSIX Hook launcher fails open without blocking the host action, but the project cannot guarantee uninterrupted Hook execution during an update.
 - Windows core CLI support does not imply production-ready Windows hooks; Windows hooks remain experimental.
 
 ## Production posture
@@ -44,6 +44,6 @@ Do not yet use the plugin as:
 - an autonomous continuation or delegation controller;
 - a substitute for project policy, code review, tests, backups, or access controls.
 
-Promotion beyond shadow use requires repeatable binding resolution, a paired recovery trial meeting the declared effect threshold, an injected authority-drift trial, and the pinned Spec Kit/Superpowers/bridge handoff smoke.
+Repeatable binding resolution, the predeclared original-baseline recovery threshold, the injected authority-drift matrix, and the pinned Spec Kit/Superpowers/bridge handoff smoke passed on 2026-08-20. This permits a limited human-reviewed advisory pilot only. Promotion to a blocking control or autonomous continuation still requires broader repetition, tail-latency reduction, and an explicit V1 decision.
 
-For local plugin iteration, update the cachebuster and run `codex plugin add` directly. Do not run `codex plugin remove` first while any task may still reference the installed cache path. The package validator exercises both the installed adapter path and a simulated missing old path, but only the Codex host can determine when every active task has released a cache reference.
+For local plugin iteration, wait until every task using the installed plugin has ended before running `codex plugin add`. Do not rely on cachebuster SemVer alone to retain old directories, and never run `codex plugin remove` while a task may reference an installed path. The package validator exercises both the installed adapter path and a simulated missing old path, but only the Codex host can determine when every active task has released a cache reference.

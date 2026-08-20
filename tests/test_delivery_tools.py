@@ -85,6 +85,37 @@ class DeliveryToolTests(unittest.TestCase):
         self.assertFalse(result["passed"])
         self.assertFalse(result["checks"]["pinned_dependencies_verified"])
 
+    def test_compatibility_smoke_accepts_real_bridge_readiness_shape(self) -> None:
+        module = load_module("compatibility_smoke_bridge_readiness_test", COMPATIBILITY_SMOKE)
+        readiness = {
+            "required_tools": {"status": "ready", "items": []},
+            "namespace": {"status": "ready"},
+            "package_files": {"status": "ready", "missing": []},
+            "bridge_state": {
+                "status": "warning",
+                "feature_directory": None,
+                "next": "/speckit-specify",
+            },
+            "agents": {"status": "ready", "items": []},
+            "overall_status": "warning",
+            "next": "/speckit-specify",
+        }
+        self.assertTrue(module._evidence_true(readiness, kind="readiness"))
+        readiness["required_tools"] = {"status": "warning", "items": []}
+        self.assertFalse(module._evidence_true(readiness, kind="readiness"))
+
+    def test_compatibility_smoke_rejects_failed_bridge_state(self) -> None:
+        module = load_module("compatibility_smoke_failed_bridge_test", COMPATIBILITY_SMOKE)
+        readiness = {
+            "required_tools": {"status": "ready"},
+            "namespace": {"status": "ready"},
+            "package_files": {"status": "ready"},
+            "bridge_state": {"status": "failed"},
+            "agents": {"status": "ready"},
+            "overall_status": "failed",
+        }
+        self.assertFalse(module._evidence_true(readiness, kind="readiness"))
+
 
 if __name__ == "__main__":
     unittest.main()

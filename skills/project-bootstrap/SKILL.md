@@ -12,20 +12,20 @@ Establish governance without installing dependencies or taking ownership of spec
 1. Run a read-only preview first:
 
 ```bash
-python scripts/bootstrap.py plan --project-root /path/to/project
+python3 scripts/bootstrap.py plan --project-root /path/to/project
 ```
 
 2. Review every `create`, `skip`, and `conflict` result. Treat existing files as user-owned. For a brownfield `AGENTS.md`, use the returned hashes and `missing_template_rules` as manual merge guidance; never replace the file.
 3. Apply only after the user has authorized repository changes:
 
 ```bash
-python scripts/bootstrap.py apply --project-root /path/to/project
+python3 scripts/bootstrap.py apply --project-root /path/to/project
 ```
 
 4. Run the health check and report dependency warnings separately from file conflicts:
 
 ```bash
-python scripts/bootstrap.py check --project-root /path/to/project
+python3 scripts/bootstrap.py check --project-root /path/to/project
 ```
 
 Add `--json` when another script or agent consumes the result.
