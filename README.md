@@ -4,10 +4,13 @@ A deliberately small, skills-only Codex plugin for durable context governance in
 
 Repository: [github.com/jayjcc8-cloud/agent-project-governance](https://github.com/jayjcc8-cloud/agent-project-governance)
 
-Version 0.4 is a developer preview with two workflows:
+Version 0.5 is an unreleased developer-preview candidate with five focused workflows:
 
-- `project-bootstrap` previews and creates missing governance assets without overwriting project policy or installing dependencies.
-- `context-governance` checkpoints, resumes, evaluates, binds, resolves bindings, migrates, and closes actor-owned work units under `.agent-runtime/`.
+- `project-bootstrap` explicitly initializes or compatibility-checks governance assets.
+- `context-governance` checkpoints, resumes, hands off, binds, and closes actor-owned work units under `.agent-runtime/`.
+- `eng-task-start` refreshes local Git/worktree and authorization facts for ordinary task intake.
+- `eng-bounded-delivery` keeps implementation and one independent review inside the current task contract.
+- `eng-verified-closeout` verifies the current candidate, CI, package, merge, and authorized cleanup as separate facts.
 
 ## Responsibility model
 
@@ -16,7 +19,7 @@ Version 0.4 is a developer preview with two workflows:
 | Spec Kit | WHAT: constitution, specification, plan, and canonical `tasks.md` |
 | Superpowers | HOW: worktrees, TDD, debugging, subagents, review, and verification |
 | speckit-superpowers-bridge | Handoff between WHAT and HOW |
-| Agent Project Governance | WHEN/HOW TO CONTINUE: isolated runtime memory and advisory lifecycle decisions |
+| Agent Project Governance | WHEN/HOW TO CONTINUE: task intake, isolated runtime memory, bounded delivery guidance, and evidence closeout |
 
 The plugin never creates a competing task plan, copies task lists into runtime state, edits formal artifacts, spawns agents, creates worktrees, or runs converge.
 
@@ -28,19 +31,29 @@ Preview first:
 
 ```bash
 python3 skills/project-bootstrap/scripts/bootstrap.py plan \
-  --project-root /path/to/project
+  --project-root /path/to/project \
+  --profile existing-project
 ```
 
 Apply only missing files:
 
 ```bash
 python3 skills/project-bootstrap/scripts/bootstrap.py apply \
-  --project-root /path/to/project
+  --project-root /path/to/project \
+  --profile existing-project
 ```
 
-Existing files are never changed. A differing `AGENTS.md`, `.gitignore`, policy, or ADR file is reported as a conflict for manual reconciliation. Missing Spec Kit, Superpowers, and bridge installations produce copyable instructions but are never installed automatically.
+`existing-project` is the default. It does not probe or require Spec Kit,
+Superpowers, or the bridge; those dependencies are `not_applicable`. Existing
+files are user-owned and never changed. Missing ADR conventions are not a task
+intake blocker, and `ready` does not assert code correctness, CI success, remote
+freshness, or merge authorization.
 
 For brownfield `AGENTS.md` files, JSON output includes existing/template digests and the missing minimal governance rules. This is merge guidance only; `apply` still never edits the user-owned file.
+
+Projects that explicitly selected the former full framework combination retain
+the 0.4 compatibility and asset gate by passing `--profile spec-kit-stack` to
+`plan`, `check`, or `apply`. No profile installs a dependency.
 
 ## Context governance
 
@@ -110,6 +123,22 @@ python3 skills/context-governance/scripts/work_unit.py resolve-binding \
 
 The command is read-only. It returns `0` with the exact binding, `1` when no active binding exists, and `2` for invalid state or input. Subagents must also pass their own `--agent-id`; resolution never falls back to a main-agent binding.
 
+Inspect a checkout without creating a work unit or binding:
+
+```bash
+python3 skills/context-governance/scripts/work_unit.py inspect-workspace \
+  --project-root /path/to/project \
+  --target-branch feature/example \
+  --base origin/main
+```
+
+This read-only local snapshot uses NUL-delimited Git output, excludes
+`.agent-runtime` from dirty-state admission, detects worktree occupancy and HEAD
+movement, and reports detached/unborn or unavailable-ref states. It never fetches
+or claims exclusive writer ownership; local remote-tracking refs are explicitly
+reported as not freshness-checked. `resume` keeps its existing compact
+`checked/head/clean` workspace shape through a thin adapter to the same helper.
+
 ## Advisory hooks
 
 Codex discovers `hooks/hooks.json` automatically when the plugin is enabled. Hooks cover `SessionStart`, `PreCompact`, `SubagentStart`, `SubagentStop`, and `Stop`.
@@ -141,7 +170,16 @@ PYTHONPYCACHEPREFIX=/tmp/apg-pycache python3 -m unittest discover -s tests -v
 python3 /path/to/plugin-creator/scripts/validate_plugin.py .
 python3 /path/to/skill-creator/scripts/quick_validate.py skills/project-bootstrap
 python3 /path/to/skill-creator/scripts/quick_validate.py skills/context-governance
+python3 /path/to/skill-creator/scripts/quick_validate.py skills/eng-task-start
+python3 /path/to/skill-creator/scripts/quick_validate.py skills/eng-bounded-delivery
+python3 /path/to/skill-creator/scripts/quick_validate.py skills/eng-verified-closeout
 ```
+
+The repository validator checks exactly these five skills, their local references,
+the explicit-only policy for the three new entry points, Python 3.9 syntax, Hook
+fail-open behavior, and the shared workspace helper from outside the source tree.
+Real Codex/Claude loading, automatic triggering, and multi-skill host behavior
+remain `NOT_RUN` for this source integration.
 
 Real long-task trials determine whether the project advances to V1. The 2026-08-20 EA forward test met the predeclared original-baseline recovery SLO and passed the injected drift matrix, permitting a limited human-reviewed advisory pilot; it does not authorize blocking or autonomous use. Record recovery time, actor state leaks, and unnoticed authority changes using [the trial template](docs/trials.md).
 
@@ -149,14 +187,22 @@ For local development updates, treat every cachebuster build as immutable. Do no
 
 ## Public installation and releases
 
-Add the public GitHub marketplace pinned to this release, then install the plugin:
+The source metadata is prepared for a future authorized `v0.5.0` prerelease. This
+integration does not create that tag, publish a release, or install a plugin.
+After a maintainer separately authorizes and publishes the tag, the intended
+installation commands are:
 
 ```bash
-codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref v0.4.1
+codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref v0.5.0
 codex plugin add agent-project-governance@agent-project-governance
 ```
 
-The repository marketplace is pinned to the same tag as the plugin manifest. Pushing `v0.4.1` runs the release workflow, validates Python 3.9 syntax and package invariants, executes all tests, and publishes a deterministic ZIP plus a portable SHA-256 file to GitHub Releases. The v0.4.0 ZIP is valid, but its checksum file recorded the build-time `dist/` path; v0.4.1 corrects the downloaded-asset verification workflow without replacing the historical release. This public GitHub distribution is separate from submission to OpenAI's universal Plugins Directory.
+The repository marketplace is pinned to the same version as the plugin manifest.
+Pushing an authorized version tag runs the existing release workflow, validates
+Python 3.9 syntax and package invariants, executes all tests, and publishes a
+deterministic ZIP plus a portable SHA-256 file. Historical tags and artifacts are
+not moved or replaced. Public GitHub distribution remains separate from OpenAI's
+universal Plugins Directory.
 
 ## License
 

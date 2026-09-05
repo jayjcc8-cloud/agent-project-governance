@@ -66,6 +66,22 @@ Reconcile changed authorities before continuing. Explicit resume and evaluate re
 
 Treat `authority_verdict` as three-valued: `matched`, `changed`, or `unknown`. Remote transport/permission failure returns `completeness: unavailable` and exit `2`; bounded pagination overflow returns `completeness: incomplete` and exit `1`. Neither condition is drift, and neither may be treated as a successful freshness check. Reconcile the evidence path before continuing.
 
+### Handoff without another store
+
+Use the existing checkpoint fields and [assets/handoff.md](assets/handoff.md)
+before a writer, task, or session handoff. Keep the derived record short:
+
+- Put the current goal, authorization source, worktree, branch, and HEAD in `summary`.
+- Put known uncommitted work, verified facts, the original blocker, and review
+  rounds already used in `findings` or `failed_attempts` as appropriate.
+- Put exactly one next bounded action in `next_action`.
+
+A new session must resume the same actor-owned work unit and independently
+recheck mutable workspace facts before writing. It must not reset review or
+repair budgets. A complete, fresh recovery contract should not trigger duplicate
+queries for evidence it already contains. A checkpoint is derived memory, not an
+authority, writer lock, task database, or proof that delivery has passed.
+
 ### Evaluate the next governance action
 
 ```bash
@@ -106,5 +122,8 @@ Use the returned work-unit and actor IDs with `resume --strict`. Exit `1` means 
 ### Migrate or close
 
 Use `migrate` for an explicit v0.1/v0.2/v0.3 → v0.4 upgrade. `checkpoint` also upgrades legacy state after validation and promotes legacy GitHub digests to the composite projection. Use `close --summary ...` only after a current checkpoint; close refuses authority drift and removes matching session bindings.
+
+Closing a work unit closes local derived memory only. It does not mean the
+product was accepted, CI passed, or a pull request was merged.
 
 Read [references/state-schema.md](references/state-schema.md) only when changing the script, adding a consumer, or diagnosing incompatible state.

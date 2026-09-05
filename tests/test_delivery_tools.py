@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -35,10 +37,50 @@ class DeliveryToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             archive = Path(directory) / "agent-project-governance.zip"
             count = packager.package(ROOT, archive)
-            result = validator.validate_archive(archive, "v0.4.1")
+            result = validator.validate_archive(archive, "v0.5.0")
         self.assertGreater(count, 0)
         self.assertTrue(result["archive_valid"], result)
         self.assertEqual(result["hook_commands_checked"], 5)
+        self.assertEqual(result["workspace_runs"], 1)
+        self.assertEqual(
+            result["skills"],
+            [
+                "context-governance",
+                "eng-bounded-delivery",
+                "eng-task-start",
+                "eng-verified-closeout",
+                "project-bootstrap",
+            ],
+        )
+
+    def test_release_archive_contains_runtime_references_and_shared_helper(self) -> None:
+        packager = load_module("package_release_contents_test", PACKAGE_RELEASE)
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "agent-project-governance.zip"
+            packager.package(ROOT, archive)
+            with zipfile.ZipFile(archive) as package:
+                names = set(package.namelist())
+        prefix = "agent-project-governance/"
+        for relative in (
+            "skills/context-governance/assets/handoff.md",
+            "skills/context-governance/scripts/workspace_snapshot.py",
+            "skills/eng-task-start/references/workspace.md",
+            "skills/eng-bounded-delivery/assets/review.md",
+            "skills/eng-bounded-delivery/references/domain-patterns.md",
+        ):
+            self.assertIn(prefix + relative, names)
+
+    def test_source_package_metadata_prepares_one_unreleased_preview(self) -> None:
+        validator = load_module("validate_package_source_test", VALIDATE_PACKAGE)
+        result = validator.validate(ROOT, exercise_hooks=False)
+        self.assertEqual(result["version"], "0.5.0")
+        self.assertEqual(result["workspace_runs"], 1)
+        manifest = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())
+        marketplace = json.loads(
+            (ROOT / ".agents" / "plugins" / "marketplace.json").read_text()
+        )
+        self.assertEqual(manifest["version"], "0.5.0")
+        self.assertEqual(marketplace["plugins"][0]["source"]["ref"], "v0.5.0")
 
     def test_release_checksum_uses_downloadable_asset_basename(self) -> None:
         validator = load_module("validate_package_release_workflow_test", VALIDATE_PACKAGE)

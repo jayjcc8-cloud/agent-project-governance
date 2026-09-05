@@ -19,6 +19,13 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterator, Optional
 
 
+_SCRIPT_DIRECTORY = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIRECTORY not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIRECTORY)
+
+from workspace_snapshot import SnapshotError, snapshot as _workspace_snapshot
+
+
 SCHEMA_VERSION = "0.4"
 LEGACY_SCHEMA_VERSIONS = {"0.1", "0.2", "0.3"}
 SUPPORTED_SCHEMA_VERSIONS = LEGACY_SCHEMA_VERSIONS | {SCHEMA_VERSION}
@@ -485,44 +492,30 @@ def _github_graphql_projection(payload: dict[str, Any], resource: str) -> tuple[
 
 def _workspace_evidence(root: Path) -> dict[str, Any]:
     """Return transient git identity without mutating governance state."""
-    environment = os.environ.copy()
-    environment["GIT_OPTIONAL_LOCKS"] = "0"
     try:
-        head = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=root,
-            env=environment,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        status = subprocess.run(
-            [
-                "git",
-                "status",
-                "--porcelain=v1",
-                "--untracked-files=all",
-                "--",
-                ".",
-                ":(exclude).agent-runtime",
-            ],
-            cwd=root,
-            env=environment,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+        detailed = _workspace_snapshot(root)
+    except (SnapshotError, OSError, RuntimeError, ValueError) as exc:
         return {"checked": False, "head": None, "clean": None, "error": str(exc)}
-    if head.returncode != 0 or status.returncode != 0:
-        return {"checked": False, "head": None, "clean": None}
     return {
         "checked": True,
-        "head": head.stdout.strip(),
-        "clean": not bool(status.stdout.strip()),
+        "head": detailed["head"],
+        "clean": detailed["tracked_and_untracked_clean"],
     }
+
+
+def _inspect_workspace(args: argparse.Namespace) -> int:
+    root = _project_root(args.project_root)
+    try:
+        report = _workspace_snapshot(
+            root,
+            base=args.base,
+            target_branch=args.target_branch,
+            expect_head=args.expect_head,
+        )
+    except SnapshotError as exc:
+        raise GovernanceError(str(exc)) from exc
+    _print(report)
+    return 1 if args.check and report["admission_conflicts_observed"] else 0
 
 
 def _github_legacy_projection(full: dict[str, Any], resource: str) -> dict[str, Any]:
@@ -1408,6 +1401,12 @@ def _parser() -> argparse.ArgumentParser:
     resolve_binding.add_argument("--project-root", required=True)
     resolve_binding.add_argument("--session", required=True)
     resolve_binding.add_argument("--agent-id")
+    inspect_workspace = subparsers.add_parser("inspect-workspace")
+    inspect_workspace.add_argument("--project-root", required=True)
+    inspect_workspace.add_argument("--base")
+    inspect_workspace.add_argument("--target-branch")
+    inspect_workspace.add_argument("--expect-head")
+    inspect_workspace.add_argument("--check", action="store_true")
     initialize = subparsers.choices["init"]
     initialize.add_argument("--parent-work-unit")
     initialize.add_argument("--authority", nargs=2, action="append", default=[])
@@ -1441,6 +1440,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "bind": _bind,
         "resolve-binding": _resolve_binding,
         "unbind": _unbind,
+        "inspect-workspace": _inspect_workspace,
     }
     try:
         return handlers[args.command](args)

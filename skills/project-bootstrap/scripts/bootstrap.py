@@ -16,9 +16,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 
-SCHEMA_VERSION = "0.2"
+SCHEMA_VERSION = "0.3"
 _VERSION_RE = re.compile(r"(?<!\d)(\d+)\.(\d+)\.(\d+)(?!\d)")
 _BRIDGE_NAME = "speckit-superpowers-bridge"
+PROFILE_EXISTING_PROJECT = "existing-project"
+PROFILE_SPEC_KIT_STACK = "spec-kit-stack"
+PROFILES = (PROFILE_EXISTING_PROJECT, PROFILE_SPEC_KIT_STACK)
 
 
 class BootstrapError(RuntimeError):
@@ -244,7 +247,7 @@ def _agents_reconciliation(existing: bytes, expected: bytes) -> dict[str, Any]:
     }
 
 
-def _file_operations(root: Path) -> list[dict[str, Any]]:
+def _file_operations(root: Path, profile: str) -> list[dict[str, Any]]:
     mappings = (
         (".agent-governance/context-policy.json", "context-policy.json"),
         ("AGENTS.md", "AGENTS.md"),
@@ -255,14 +258,16 @@ def _file_operations(root: Path) -> list[dict[str, Any]]:
     for target_name, asset_name in mappings:
         path = root / target_name
         expected = _asset(asset_name)
-        if not path.exists():
+        if profile == PROFILE_EXISTING_PROJECT and target_name.startswith("docs/adr/"):
+            action = "not_applicable"
+        elif not path.exists():
             action = "create"
         elif path.is_file() and path.read_bytes() == expected:
             action = "skip"
         else:
-            action = "conflict"
+            action = "user_owned" if profile == PROFILE_EXISTING_PROJECT else "conflict"
         operation: dict[str, Any] = {"path": target_name, "action": action, "asset": asset_name}
-        if action == "conflict":
+        if action in {"conflict", "user_owned"}:
             operation["reason_code"] = "USER_OWNED_FILE_DIFFERS"
             if target_name == "AGENTS.md" and path.is_file():
                 operation["reconciliation"] = _agents_reconciliation(path.read_bytes(), expected)
@@ -281,13 +286,13 @@ def _file_operations(root: Path) -> list[dict[str, Any]]:
     }:
         ignore_action = "skip"
     else:
-        ignore_action = "conflict"
+        ignore_action = "user_owned" if profile == PROFILE_EXISTING_PROJECT else "conflict"
     ignore_operation: dict[str, Any] = {
         "path": ".gitignore",
         "action": ignore_action,
         "expected_line": expected_line,
     }
-    if ignore_action == "conflict":
+    if ignore_action in {"conflict", "user_owned"}:
         ignore_operation.update(
             {
                 "reason_code": "MISSING_RUNTIME_IGNORE_RULE",
@@ -307,21 +312,55 @@ def _repository_kind(root: Path) -> str:
     return "greenfield" if not entries else "brownfield"
 
 
-def _report(root: Path) -> dict[str, Any]:
-    compatibility = _compatibility()
-    dependencies = [
-        _detect_spec_kit(root, compatibility),
-        _detect_superpowers(compatibility),
-        _detect_bridge(root, compatibility),
+def _not_applicable_dependencies(compatibility: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": name,
+            "status": "not_applicable",
+            "version": None,
+            "verified_version": compatibility[key]["verified"],
+        }
+        for name, key in (
+            ("spec_kit", "spec_kit"),
+            ("superpowers", "superpowers"),
+            ("speckit_superpowers_bridge", "speckit_superpowers_bridge"),
+        )
     ]
-    operations = _file_operations(root)
-    ready = all(item["status"] == "verified" for item in dependencies) and all(
-        item["action"] == "skip" for item in operations
+
+
+def _report(root: Path, profile: str = PROFILE_EXISTING_PROJECT) -> dict[str, Any]:
+    if profile not in PROFILES:
+        raise BootstrapError(f"unsupported bootstrap profile: {profile}")
+    compatibility = _compatibility()
+    if profile == PROFILE_SPEC_KIT_STACK:
+        dependencies = [
+            _detect_spec_kit(root, compatibility),
+            _detect_superpowers(compatibility),
+            _detect_bridge(root, compatibility),
+        ]
+    else:
+        dependencies = _not_applicable_dependencies(compatibility)
+    operations = _file_operations(root, profile)
+    core_ready = (
+        all(item["action"] == "skip" for item in operations)
+        if profile == PROFILE_SPEC_KIT_STACK
+        else True
     )
+    framework_compatibility = (
+        "verified"
+        if all(item["status"] == "verified" for item in dependencies)
+        else "not_ready"
+        if profile == PROFILE_SPEC_KIT_STACK
+        else "not_applicable"
+    )
+    ready = core_ready and framework_compatibility in {"verified", "not_applicable"}
     return {
         "schema_version": SCHEMA_VERSION,
+        "profile": profile,
         "project_root": str(root),
         "repository_kind": _repository_kind(root),
+        "core_ready": core_ready,
+        "framework_compatibility": framework_compatibility,
         "ready": ready,
         "operations": operations,
         "dependencies": dependencies,
@@ -374,6 +413,7 @@ def _apply(root: Path, report: dict[str, Any]) -> list[str]:
 def _print_human(command: str, report: dict[str, Any]) -> None:
     print(f"Project governance {command}: {report['project_root']}")
     print(f"Repository: {report['repository_kind']}")
+    print(f"Profile: {report['profile']}")
     for operation in report["operations"]:
         print(f"{operation['action']:>8}  {operation['path']}")
         if operation.get("reconciliation"):
@@ -384,7 +424,7 @@ def _print_human(command: str, report: dict[str, Any]) -> None:
     for dependency in report["dependencies"]:
         suffix = f" {dependency['version']}" if dependency.get("version") else ""
         print(f"{dependency['status']:>18}  {dependency['name']}{suffix}")
-        if dependency["status"] != "verified":
+        if dependency["status"] not in {"verified", "not_applicable"}:
             print(f"  Next: {dependency['instruction']}")
     if report.get("created"):
         print("Created: " + ", ".join(report["created"]))
@@ -397,6 +437,7 @@ def _parser() -> argparse.ArgumentParser:
     for name in ("plan", "check", "apply"):
         command = subparsers.add_parser(name)
         command.add_argument("--project-root", required=True)
+        command.add_argument("--profile", choices=PROFILES, default=PROFILE_EXISTING_PROJECT)
         command.add_argument("--json", action="store_true")
     return parser
 
@@ -405,10 +446,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = _parser().parse_args(argv)
     try:
         root = _project_root(args.project_root)
-        report = _report(root)
+        report = _report(root, profile=args.profile)
         if args.command == "apply":
             created = _apply(root, report)
-            report = {**_report(root), "created": created}
+            report = {**_report(root, profile=args.profile), "created": created}
         if args.json:
             print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
         else:

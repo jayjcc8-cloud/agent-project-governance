@@ -126,7 +126,7 @@ def _governance_smoke() -> dict[str, Any]:
 def evaluate(
     root: Path, readiness: dict[str, Any], handoff: dict[str, Any]
 ) -> dict[str, Any]:
-    report = bootstrap._report(root)
+    report = bootstrap._report(root, profile=bootstrap.PROFILE_SPEC_KIT_STACK)
     dependencies = {item["name"]: item for item in report["dependencies"]}
     expected_dependencies = {"spec_kit", "superpowers", "speckit_superpowers_bridge"}
     exact_versions = set(dependencies) == expected_dependencies and all(

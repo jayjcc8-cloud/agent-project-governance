@@ -26,6 +26,7 @@ jobs:
           skills/context-governance/scripts/work_unit.py
           skills/context-governance/scripts/hook_adapter.py
           skills/context-governance/scripts/trial_summary.py
+          skills/context-governance/scripts/workspace_snapshot.py
           skills/project-bootstrap/scripts/bootstrap.py
           skills/project-bootstrap/scripts/compatibility_smoke.py
           scripts/validate_package.py

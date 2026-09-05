@@ -29,6 +29,18 @@ HOOK_COMMAND = (
     'printf "%s\\n" "$fallback"; exit 0\''
 )
 HOOK_EVENTS = {"SessionStart", "PreCompact", "SubagentStart", "SubagentStop", "Stop"}
+APPROVED_SKILLS = (
+    "context-governance",
+    "eng-bounded-delivery",
+    "eng-task-start",
+    "eng-verified-closeout",
+    "project-bootstrap",
+)
+EXPLICIT_ONLY_SKILLS = {
+    "eng-bounded-delivery",
+    "eng-task-start",
+    "eng-verified-closeout",
+}
 
 
 class ValidationError(RuntimeError):
@@ -82,6 +94,28 @@ def _python39(path: Path) -> None:
             ast.parse(source, filename=str(path), feature_version=9)
     except SyntaxError as exc:
         raise ValidationError(f"not valid Python 3.9 syntax: {path}:{exc.lineno}: {exc.msg}") from exc
+
+
+def _validate_skill_files(skill_file: Path) -> None:
+    text = skill_file.read_text(encoding="utf-8")
+    for relative in re.findall(r"\]\(([^)]+)\)", text):
+        if "://" in relative:
+            continue
+        target = (skill_file.parent / relative).resolve()
+        if not target.is_relative_to(skill_file.parent.resolve()) or not target.is_file():
+            raise ValidationError(f"missing or unsafe skill reference: {skill_file}:{relative}")
+    agent_file = skill_file.parent / "agents" / "openai.yaml"
+    if not agent_file.is_file():
+        raise ValidationError(f"skill is missing agents/openai.yaml: {skill_file.parent.name}")
+    if skill_file.parent.name in EXPLICIT_ONLY_SKILLS:
+        agent = agent_file.read_text(encoding="utf-8")
+        if re.search(
+            r"(?ms)^policy:\s*\n\s+allow_implicit_invocation:\s*false\s*$",
+            agent,
+        ) is None:
+            raise ValidationError(
+                f"new skill must disable implicit invocation: {skill_file.parent.name}"
+            )
 
 
 def _hook_commands(hooks: dict[str, Any]) -> list[str]:
@@ -149,6 +183,53 @@ def _exercise_hooks(root: Path) -> int:
     return 2
 
 
+def _exercise_workspace_helper(root: Path) -> int:
+    script = root / "skills" / "context-governance" / "scripts" / "work_unit.py"
+    with tempfile.TemporaryDirectory() as directory:
+        repository = Path(directory) / "external-fixture"
+        try:
+            initialized = subprocess.run(
+                ["git", "init", "-q", "--initial-branch=main", str(repository)],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            inspected = subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "inspect-workspace",
+                    "--project-root",
+                    str(repository),
+                ],
+                cwd=directory,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise ValidationError("cannot execute packaged workspace helper") from exc
+        if initialized.returncode != 0:
+            raise ValidationError("cannot initialize external Git fixture")
+        if inspected.returncode != 0:
+            raise ValidationError("packaged workspace helper failed outside the source checkout")
+        try:
+            result = json.loads(inspected.stdout)
+        except json.JSONDecodeError as exc:
+            raise ValidationError("packaged workspace helper returned invalid JSON") from exc
+        if (
+            not isinstance(result, dict)
+            or result.get("schema") != "agent-project-governance.workspace-snapshot.v1"
+            or result.get("observation_only") is not True
+            or result.get("network_accessed") is not False
+            or (repository / ".agent-runtime").exists()
+        ):
+            raise ValidationError("packaged workspace helper violated its read-only contract")
+    return 1
+
+
 def validate(
     root: Path,
     expected_tag: Optional[str] = None,
@@ -172,8 +253,9 @@ def validate(
     skill_names = []
     for skill_file in sorted((root / "skills").glob("*/SKILL.md")):
         skill_names.append(_skill_frontmatter(skill_file)["name"])
-    if skill_names != ["context-governance", "project-bootstrap"]:
-        raise ValidationError("expected exactly the two governance skills")
+        _validate_skill_files(skill_file)
+    if skill_names != list(APPROVED_SKILLS):
+        raise ValidationError("skill set differs from the five approved governance entrypoints")
 
     python_files = sorted((root / "skills").glob("*/scripts/*.py"))
     python_files.extend(sorted((root / "scripts").glob("*.py")))
@@ -199,6 +281,7 @@ def validate(
         )
         _validate_release_workflow(release_workflow)
     hook_runs = _exercise_hooks(root) if exercise_hooks else 0
+    workspace_runs = _exercise_workspace_helper(root)
     return {
         "valid": True,
         "plugin": PLUGIN_NAME,
@@ -207,6 +290,7 @@ def validate(
         "python_files_checked": len(python_files),
         "hook_commands_checked": len(hook_commands),
         "hook_runs": hook_runs,
+        "workspace_runs": workspace_runs,
         "source_layout": source_layout,
     }
 
