@@ -1,0 +1,15 @@
+{
+  "schema_version": "0.2",
+  "authority": {
+    "task_source": "project-defined",
+    "runtime_copies_tasks": false
+  },
+  "runtime": {
+    "directory": ".agent-runtime",
+    "git_tracked": false
+  },
+  "hooks": {
+    "mode": "advisory"
+  },
+  "dependencies": {}
+}
