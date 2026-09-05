@@ -8,6 +8,8 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Optional
+from unittest import mock
 
 
 SCRIPT = (
@@ -28,11 +30,23 @@ def load_bootstrap_module():
 
 
 class BootstrapTests(unittest.TestCase):
-    def run_cli(self, root: Path, command: str) -> subprocess.CompletedProcess[str]:
+    def run_cli(
+        self, root: Path, command: str, *, profile: Optional[str] = None
+    ) -> subprocess.CompletedProcess[str]:
         environment = os.environ.copy()
         environment["PATH"] = ""
+        arguments = [
+            sys.executable,
+            str(SCRIPT),
+            command,
+            "--project-root",
+            str(root),
+            "--json",
+        ]
+        if profile is not None:
+            arguments.extend(("--profile", profile))
         return subprocess.run(
-            [sys.executable, str(SCRIPT), command, "--project-root", str(root), "--json"],
+            arguments,
             check=False,
             capture_output=True,
             text=True,
@@ -47,20 +61,28 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(planned.returncode, 0, planned.stderr)
             report = json.loads(planned.stdout)
             self.assertEqual(list(root.iterdir()), before)
-            self.assertTrue(all(item["action"] == "create" for item in report["operations"]))
-            self.assertFalse(report["ready"])
+            actions = {item["path"]: item["action"] for item in report["operations"]}
+            self.assertEqual(report["profile"], "existing-project")
+            self.assertEqual(actions["AGENTS.md"], "create")
+            self.assertEqual(actions["docs/adr/README.md"], "not_applicable")
+            self.assertTrue(report["core_ready"])
+            self.assertTrue(report["ready"])
 
     def test_apply_creates_only_missing_files_and_is_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             applied = self.run_cli(root, "apply")
-            self.assertEqual(applied.returncode, 1, applied.stderr)
+            self.assertEqual(applied.returncode, 0, applied.stderr)
             report = json.loads(applied.stdout)
-            self.assertEqual(len(report["created"]), 5)
+            self.assertEqual(
+                report["created"],
+                [".agent-governance/context-policy.json", "AGENTS.md", ".gitignore"],
+            )
             self.assertTrue((root / ".agent-governance" / "context-policy.json").is_file())
+            self.assertFalse((root / "docs" / "adr").exists())
             self.assertEqual((root / ".gitignore").read_text(encoding="utf-8"), ".agent-runtime/\n")
             second = self.run_cli(root, "apply")
-            self.assertEqual(second.returncode, 1, second.stderr)
+            self.assertEqual(second.returncode, 0, second.stderr)
             self.assertEqual(json.loads(second.stdout)["created"], [])
 
     def test_existing_files_are_never_modified(self) -> None:
@@ -71,11 +93,11 @@ class BootstrapTests(unittest.TestCase):
             agents.write_text("user-owned\n", encoding="utf-8")
             ignore.write_text("build/\n", encoding="utf-8")
             applied = self.run_cli(root, "apply")
-            self.assertEqual(applied.returncode, 1, applied.stderr)
+            self.assertEqual(applied.returncode, 0, applied.stderr)
             report = json.loads(applied.stdout)
             actions = {item["path"]: item["action"] for item in report["operations"]}
-            self.assertEqual(actions["AGENTS.md"], "conflict")
-            self.assertEqual(actions[".gitignore"], "conflict")
+            self.assertEqual(actions["AGENTS.md"], "user_owned")
+            self.assertEqual(actions[".gitignore"], "user_owned")
             operations = {item["path"]: item for item in report["operations"]}
             agents_advice = operations["AGENTS.md"]["reconciliation"]
             self.assertEqual(agents_advice["strategy"], "manual_merge")
@@ -88,15 +110,52 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(agents.read_text(encoding="utf-8"), "user-owned\n")
             self.assertEqual(ignore.read_text(encoding="utf-8"), "build/\n")
 
-    def test_check_returns_one_when_dependencies_are_missing(self) -> None:
+    def test_default_existing_project_does_not_probe_optional_frameworks(self) -> None:
+        module = load_bootstrap_module()
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(
+            module, "_detect_spec_kit", side_effect=AssertionError("must not probe Spec Kit")
+        ), mock.patch.object(
+            module, "_detect_superpowers", side_effect=AssertionError("must not probe Superpowers")
+        ), mock.patch.object(
+            module, "_detect_bridge", side_effect=AssertionError("must not probe bridge")
+        ):
+            root = Path(directory)
+            (root / "AGENTS.md").write_text("user-owned\n", encoding="utf-8")
+            before = (root / "AGENTS.md").read_bytes()
+            report = module._report(root, profile="existing-project")
+            self.assertTrue(report["ready"])
+            self.assertTrue(report["core_ready"])
+            self.assertEqual(
+                {item["status"] for item in report["dependencies"]}, {"not_applicable"}
+            )
+            self.assertEqual(
+                {item["path"]: item["action"] for item in report["operations"]}[
+                    "AGENTS.md"
+                ],
+                "user_owned",
+            )
+            self.assertEqual((root / "AGENTS.md").read_bytes(), before)
+
+    def test_explicit_spec_kit_stack_preserves_missing_dependency_gate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            checked = self.run_cli(root, "check")
+            checked = self.run_cli(root, "check", profile="spec-kit-stack")
             self.assertEqual(checked.returncode, 1, checked.stderr)
-            statuses = {item["name"]: item["status"] for item in json.loads(checked.stdout)["dependencies"]}
+            result = json.loads(checked.stdout)
+            self.assertEqual(result["profile"], "spec-kit-stack")
+            statuses = {item["name"]: item["status"] for item in result["dependencies"]}
             self.assertEqual(statuses["spec_kit"], "missing")
             self.assertEqual(statuses["superpowers"], "missing")
             self.assertEqual(statuses["speckit_superpowers_bridge"], "missing")
+
+    def test_explicit_spec_kit_stack_apply_retains_legacy_asset_set(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            applied = self.run_cli(root, "apply", profile="spec-kit-stack")
+            self.assertEqual(applied.returncode, 1, applied.stderr)
+            result = json.loads(applied.stdout)
+            self.assertEqual(len(result["created"]), 5)
+            self.assertTrue((root / "docs" / "adr" / "README.md").is_file())
 
     def test_compatibility_classifier_is_conservative(self) -> None:
         module = load_bootstrap_module()
