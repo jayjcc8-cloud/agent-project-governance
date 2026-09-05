@@ -1,0 +1,6 @@
+interface:
+  display_name: "Engineering Task Start"
+  short_description: "Refresh task and workspace facts before writing"
+  default_prompt: "Use $eng-task-start to inspect this task's current repository and handoff evidence."
+policy:
+  allow_implicit_invocation: false

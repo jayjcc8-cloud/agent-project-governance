@@ -140,6 +140,51 @@ class WorkUnitTests(unittest.TestCase):
             self.assertFalse(result["diagnostics"]["persisted"])
             self.assertEqual(tasks.read_text(encoding="utf-8"), "- [ ] T001 Build the feature\n")
 
+    def test_handoff_checkpoint_preserves_blocker_budget_dirty_work_and_next_action(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            checkpointed = self.run_cli(
+                root,
+                "checkpoint",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--summary",
+                "Authorized goal from Issue 7; branch feature/7 at abc123.",
+                "--next-action",
+                "Reproduce the original package blocker once.",
+                "--finding",
+                "Known uncommitted work: tests/test_package.py is modified.",
+                "--finding",
+                "Primary review rounds already used: 1 of 1.",
+                "--finding",
+                "Verified fact: focused regression passed at the recorded HEAD.",
+                "--failed-attempt",
+                "Original blocker: extracted archive cannot import shared helper.",
+            )
+            self.assertEqual(checkpointed.returncode, 0, checkpointed.stderr)
+            resumed = self.run_cli(
+                root,
+                "resume",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--strict",
+            )
+            self.assertEqual(resumed.returncode, 0, resumed.stderr)
+            handoff = json.loads(resumed.stdout)["checkpoint"]
+            self.assertEqual(handoff["sequence"], 1)
+            self.assertIn("Issue 7", handoff["summary"])
+            self.assertIn("uncommitted work", handoff["findings"][0])
+            self.assertIn("review rounds", handoff["findings"][1])
+            self.assertIn("Original blocker", handoff["failed_attempts"][0])
+            self.assertEqual(
+                handoff["next_action"], "Reproduce the original package blocker once."
+            )
+
     def test_workspace_evidence_is_transient_and_disables_git_locks(self) -> None:
         module = load_work_unit_module()
         responses = [

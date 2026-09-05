@@ -1,0 +1,6 @@
+interface:
+  display_name: "Verified Engineering Closeout"
+  short_description: "Verify candidate evidence before merge or cleanup"
+  default_prompt: "Use $eng-verified-closeout to verify this candidate and report only current evidence."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Bounded Engineering Delivery"
+  short_description: "Deliver one increment with a finite review loop"
+  default_prompt: "Use $eng-bounded-delivery to implement this authorized increment within its existing acceptance contract."
+policy:
+  allow_implicit_invocation: false
