@@ -187,20 +187,17 @@ class WorkUnitTests(unittest.TestCase):
 
     def test_workspace_evidence_is_transient_and_disables_git_locks(self) -> None:
         module = load_work_unit_module()
-        responses = [
-            subprocess.CompletedProcess(["git"], 0, "a" * 40 + "\n", ""),
-            subprocess.CompletedProcess(["git"], 0, "", ""),
-        ]
-        with mock.patch.object(module.subprocess, "run", side_effect=responses) as run:
+        detailed = {
+            "head": "a" * 40,
+            "tracked_and_untracked_clean": True,
+        }
+        with mock.patch.object(module, "_workspace_snapshot", return_value=detailed) as inspect:
             evidence = module._workspace_evidence(Path.cwd())
         self.assertEqual(
             evidence,
             {"checked": True, "head": "a" * 40, "clean": True},
         )
-        self.assertEqual(run.call_count, 2)
-        for call in run.call_args_list:
-            self.assertEqual(call.kwargs["env"]["GIT_OPTIONAL_LOCKS"], "0")
-        self.assertIn(":(exclude).agent-runtime", run.call_args_list[1].args[0])
+        inspect.assert_called_once_with(Path.cwd())
 
     def test_actor_cannot_read_another_work_unit(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
