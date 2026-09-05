@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -69,6 +71,55 @@ class DeliveryToolTests(unittest.TestCase):
             "skills/eng-bounded-delivery/references/domain-patterns.md",
         ):
             self.assertIn(prefix + relative, names)
+
+    def test_extracted_package_default_bootstrap_is_framework_neutral(self) -> None:
+        packager = load_module("package_release_bootstrap_test", PACKAGE_RELEASE)
+        with tempfile.TemporaryDirectory() as directory:
+            temporary = Path(directory)
+            archive = temporary / "agent-project-governance.zip"
+            extracted = temporary / "extracted"
+            project = temporary / "external-project"
+            project.mkdir()
+            (project / "README.md").write_text("project\n", encoding="utf-8")
+            packager.package(ROOT, archive)
+            with zipfile.ZipFile(archive) as package:
+                package.extractall(extracted)
+            script = (
+                extracted
+                / "agent-project-governance"
+                / "skills"
+                / "project-bootstrap"
+                / "scripts"
+                / "bootstrap.py"
+            )
+            environment = os.environ.copy()
+            environment["PATH"] = ""
+            applied = subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "apply",
+                    "--project-root",
+                    str(project),
+                    "--json",
+                ],
+                cwd=temporary,
+                check=False,
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+            self.assertEqual(applied.returncode, 0, applied.stderr)
+            agents = (project / "AGENTS.md").read_text(encoding="utf-8")
+            policy = json.loads(
+                (project / ".agent-governance" / "context-policy.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertIn("project's already accepted", agents)
+            self.assertNotIn("Treat Spec Kit specifications", agents)
+            self.assertEqual(policy["authority"]["task_source"], "project-defined")
+            self.assertEqual(policy["dependencies"], {})
 
     def test_source_package_metadata_prepares_one_unreleased_preview(self) -> None:
         validator = load_module("validate_package_source_test", VALIDATE_PACKAGE)

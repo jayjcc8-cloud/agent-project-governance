@@ -47,7 +47,8 @@ explicitly to `plan`, `check`, or `apply`.
 - Never overwrite or append to an existing file. Report a conflict with deterministic manual reconciliation guidance instead.
 - Never install Spec Kit, Superpowers, or the bridge. Return copyable instructions only.
 - Never create or edit constitution, spec, plan, tasks, implementation, worktree, or thread state.
-- Keep `.agent-runtime/` private and derived. Spec Kit `tasks.md` remains the task source of truth.
+- Keep `.agent-runtime/` private and derived. Preserve the project's accepted
+  task source; only `spec-kit-stack` treats Spec Kit `tasks.md` as canonical.
 - Use [references/compatibility.json](references/compatibility.json) only for local readiness classification; newer upstream versions remain `newer_unverified` until a recorded smoke test passes.
 - `ready` means only that the selected bootstrap profile has no bootstrap blocker;
   it does not prove code correctness, CI success, current remote freshness, or merge authorization.

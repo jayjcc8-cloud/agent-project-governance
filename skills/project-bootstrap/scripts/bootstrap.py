@@ -248,9 +248,14 @@ def _agents_reconciliation(existing: bytes, expected: bytes) -> dict[str, Any]:
 
 
 def _file_operations(root: Path, profile: str) -> list[dict[str, Any]]:
+    profile_assets = (
+        ("context-policy-existing-project.json", "AGENTS-existing-project.md")
+        if profile == PROFILE_EXISTING_PROJECT
+        else ("context-policy.json", "AGENTS.md")
+    )
     mappings = (
-        (".agent-governance/context-policy.json", "context-policy.json"),
-        ("AGENTS.md", "AGENTS.md"),
+        (".agent-governance/context-policy.json", profile_assets[0]),
+        ("AGENTS.md", profile_assets[1]),
         ("docs/adr/README.md", "adr-README.md"),
         ("docs/adr/ADR-template.md", "ADR-template.md"),
     )
