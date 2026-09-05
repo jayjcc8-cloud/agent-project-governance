@@ -1,5 +1,7 @@
 # EA v0.4 recovery trial and forward test
 
+> Historical mechanism evidence. This record predates the [APG V1 core contract](../apg-v1-contract.md) and is not V1 product-value acceptance.
+
 ## Result
 
 Nine isolated Codex worktrees used the same EA commit (`462951e`), the same read-only recovery request, and the same expected Issue #61 / PR #62 / ADR 0021 truth. No timed task changed source, specifications, runtime state, git, or GitHub, and no timed task ran tests.

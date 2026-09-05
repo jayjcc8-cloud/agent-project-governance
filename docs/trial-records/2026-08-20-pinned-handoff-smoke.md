@@ -1,5 +1,7 @@
 # Pinned handoff compatibility smoke
 
+> Historical mechanism evidence. This record predates the [APG V1 core contract](../apg-v1-contract.md) and is not V1 product-value acceptance.
+
 ## Result
 
 The exact baseline passed end to end on 2026-08-20:

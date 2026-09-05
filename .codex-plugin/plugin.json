@@ -1,7 +1,7 @@
 {
   "name": "agent-project-governance",
   "version": "0.5.0",
-  "description": "Start, checkpoint, deliver, and close bounded engineering work without a second plan",
+  "description": "Support task continuity, source realignment, worktree boundaries, and recovery without replacing project authorities",
   "author": {
     "name": "Agent Project Governance contributors"
   },
@@ -18,8 +18,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Agent Project Governance",
-    "shortDescription": "Start, resume, deliver, and verify bounded engineering work.",
-    "longDescription": "A developer-preview governance layer for existing-project intake, optional project bootstrap, actor-scoped checkpoints, bounded delivery, and evidence-based closeout. It reuses project authorities and engineering tools rather than creating another plan or orchestration system.",
+    "shortDescription": "Continue real development tasks without replacing project authorities.",
+    "longDescription": "A developer-preview continuity layer for context recovery, task-source realignment, and worktree-boundary evidence. Existing bootstrap, delivery, closeout, and hook entry points remain auxiliary and reuse project authorities rather than creating another plan or orchestration system.",
     "developerName": "Agent Project Governance contributors",
     "category": "Productivity",
     "capabilities": [

@@ -1,16 +1,18 @@
 # Agent Project Governance
 
-A deliberately small, skills-only Codex plugin for durable context governance in long-running AI engineering work.
+A deliberately small, skills-only Codex plugin for execution continuity and context support in long-running AI engineering work.
 
 Repository: [github.com/jayjcc8-cloud/agent-project-governance](https://github.com/jayjcc8-cloud/agent-project-governance)
 
-Version 0.5 is an unreleased developer-preview candidate with five focused workflows:
+Version 0.5 is an unreleased developer-preview candidate that retains five focused workflow entry points:
 
 - `project-bootstrap` explicitly initializes or compatibility-checks governance assets.
 - `context-governance` checkpoints, resumes, hands off, binds, and closes actor-owned work units under `.agent-runtime/`.
 - `eng-task-start` refreshes local Git/worktree and authorization facts for ordinary task intake.
 - `eng-bounded-delivery` keeps implementation and one independent review inside the current task contract.
 - `eng-verified-closeout` verifies the current candidate, CI, package, merge, and authorized cleanup as separate facts.
+
+These entry points are not a required chain and do not define the V1 product boundary. The [APG V1 core contract](docs/apg-v1-contract.md) limits the product core to context/task continuity, task-source realignment, worktree boundaries, and recovery/budget continuity. Bootstrap, bounded delivery, verified closeout, advisory hooks, and historic drift or timing experiments remain auxiliary or compatibility evidence.
 
 ## Responsibility model
 
@@ -19,9 +21,9 @@ Version 0.5 is an unreleased developer-preview candidate with five focused workf
 | Spec Kit | WHAT: constitution, specification, plan, and canonical `tasks.md` |
 | Superpowers | HOW: worktrees, TDD, debugging, subagents, review, and verification |
 | speckit-superpowers-bridge | Handoff between WHAT and HOW |
-| Agent Project Governance | WHEN/HOW TO CONTINUE: task intake, isolated runtime memory, bounded delivery guidance, and evidence closeout |
+| Agent Project Governance | HOW TO CONTINUE: task continuity, task-source realignment, worktree-boundary evidence, and recovery/budget continuity |
 
-The plugin never creates a competing task plan, copies task lists into runtime state, edits formal artifacts, spawns agents, creates worktrees, or runs converge.
+The plugin never creates a competing task plan, copies task lists into runtime state, edits formal artifacts, approves technical conclusions, spawns agents, creates worktrees, or runs converge. GitHub, the repository, accepted Specs, Issues, PRs, and CI remain the product facts and acceptance sources.
 
 See [capability boundaries and production posture](docs/capability-boundaries.md) for the explicit supported/unsupported matrix and current shadow-pilot restriction.
 
@@ -181,7 +183,7 @@ fail-open behavior, and the shared workspace helper from outside the source tree
 Real Codex/Claude loading, automatic triggering, and multi-skill host behavior
 remain `NOT_RUN` for this source integration.
 
-Real long-task trials determine whether the project advances to V1. The 2026-08-20 EA forward test met the predeclared original-baseline recovery SLO and passed the injected drift matrix, permitting a limited human-reviewed advisory pilot; it does not authorize blocking or autonomous use. Record recovery time, actor state leaks, and unnoticed authority changes using [the trial template](docs/trials.md).
+Real product tasks determine whether APG V1 demonstrates value. `APG_ACCEPTANCE=PASS` requires APG to solve or avoid a concrete continuity/context problem without blocking product development; mechanism health, recovery timing, and injected source-change tests cannot pass that gate alone. Use [the three-real-task value evaluation](docs/apg-v1-three-task-value-evaluation.md). The older recovery and drift records remain historical mechanism evidence in [the trial index](docs/trials.md).
 
 For local development updates, treat every cachebuster build as immutable. Do not update an installed plugin while any task may still reference its current cache path: Codex CLI `plugin add` was observed removing older cache directories even without a preceding `plugin remove`. Existing tasks cannot be hot-swapped and may call their pinned Hook path later. Update only after those tasks end, or preserve and explicitly verify every pinned cache path before resuming them. Release validation executes the Hook launcher from the packaged ZIP and simulates a missing retired build, but fail-open behavior is not uninterrupted cache retention.
 

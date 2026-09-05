@@ -1,6 +1,8 @@
 # Capability boundaries and production posture
 
-Agent Project Governance is a local, advisory context-governance layer. It helps an agent remember where a bounded unit stopped and verify whether declared authorities changed. It is not a planning system or an autonomous orchestrator.
+Agent Project Governance is a local, advisory execution-continuity and context-support layer. It helps an agent continue a real development task, realign to a changed declared task source, preserve worktree boundaries, and recover bounded context. It is not a project fact source, technical approver, drift detector, knowledge-governance system, planning system, or autonomous orchestrator.
+
+The normative product boundary is the [APG V1 core contract](apg-v1-contract.md). Existing 0.5 workflow entry points and historic experiments remain available, but auxiliary mechanism breadth is not the V1 product definition.
 
 ## What it can do
 
@@ -15,9 +17,12 @@ Agent Project Governance is a local, advisory context-governance layer. It helps
 - Bind an explicit session/agent pair to one actor/work unit and keep main-task and subagent keys isolated.
 - Provide read-only advisory hook context at session start, before compaction, and at stop events. Hooks always allow the host action to continue.
 
+These mechanisms support four V1 outcomes: context/task continuity, task-source realignment, worktree boundaries, and recovery/budget continuity. Bootstrap, delivery, closeout, hook transport, timing measurements, and injected change matrices are auxiliary support or historical evidence.
+
 ## What it cannot do
 
 - It does not own WHAT: it does not create or edit constitutions, specifications, plans, canonical task lists, Issues, PRs, or ADR decisions.
+- It does not approve technical conclusions, product acceptance, or product risk levels.
 - It does not own HOW: it does not run implementation, tests, converge, debugging, subagents, new tasks, worktrees, compaction, or handoffs.
 - It does not infer actor ownership. A missing or ambiguous binding must be explicitly resolved or treated as unbound.
 - It does not persist source contents, task copies, chat transcripts, evaluation results, or telemetry.
@@ -29,6 +34,7 @@ Agent Project Governance is a local, advisory context-governance layer. It helps
 - It cannot guarantee faster recovery in every environment. The v0.4 forward test met the predeclared original-baseline threshold with a 53.412% median improvement, but the same-day comparison improved 39.175% and one remote-unavailable tail sample required a safe fallback.
 - It cannot hot-swap an already-running Codex task to a new plugin build. Tasks pin the cache path selected by their host, and Codex CLI `plugin add` may garbage-collect older cache directories. If an old path disappears unexpectedly, the POSIX Hook launcher fails open without blocking the host action, but the project cannot guarantee uninterrupted Hook execution during an update.
 - Windows core CLI support does not imply production-ready Windows hooks; Windows hooks remain experimental.
+- It does not provide general drift governance, depend on ADG, continuously manage Obsidian, or automatically promote knowledge into a method, Skill, or Spec.
 
 ## Production posture
 
@@ -50,6 +56,8 @@ Do not yet use the plugin as:
 - an automatic trigger chain requiring every task to run all five skills;
 - a substitute for project policy, code review, tests, backups, or access controls.
 
-Repeatable binding resolution, the predeclared original-baseline recovery threshold, the injected authority-drift matrix, and the pinned Spec Kit/Superpowers/bridge handoff smoke passed on 2026-08-20. This permits a limited human-reviewed advisory pilot only. Promotion to a blocking control or autonomous continuation still requires broader repetition, tail-latency reduction, and an explicit V1 decision.
+Repeatable binding resolution, the predeclared original-baseline recovery threshold, the injected authority-change matrix, and the pinned Spec Kit/Superpowers/bridge handoff smoke passed on 2026-08-20. These results support a limited human-reviewed advisory pilot and remain historical mechanism evidence. They do not establish APG V1 product value.
+
+V1 acceptance is evaluated on three real product tasks with [the value evaluation template](apg-v1-three-task-value-evaluation.md). A pass requires one concrete continuity/context problem solved or avoided and no product-development blockage. ADG or drift governance is not part of the evaluation. Promotion to blocking control or autonomous continuation is outside the V1 contract rather than a presumed next maturity step.
 
 For local plugin iteration, wait until every task using the installed plugin has ended before running `codex plugin add`. Do not rely on cachebuster SemVer alone to retain old directories, and never run `codex plugin remove` while a task may reference an installed path. The package validator exercises both the installed adapter path and a simulated missing old path, but only the Codex host can determine when every active task has released a cache reference.
