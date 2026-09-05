@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -66,12 +67,16 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(unknown.read_text(encoding="utf-8"), "keep")
         self.assertEqual(tracked.read_text(encoding="utf-8"), "modified")
 
-    def test_unusual_filename_and_rename_use_nul_parsing(self) -> None:
+    def test_unusual_filename_uses_nul_parsing(self) -> None:
         unusual = "tab\tand\nnewline.txt"
-        (self.repo / unusual).write_text("data", encoding="utf-8")
-        paths = [row["path"] for row in self.module.snapshot(self.repo)["changes"]]
-        self.assertIn(unusual, paths)
-        (self.repo / unusual).unlink()
+        parsed = self.module.parse_status(b"?? " + os.fsencode(unusual) + b"\x00")
+        self.assertEqual(parsed, [{"status": "??", "path": unusual}])
+        if os.name != "nt":
+            (self.repo / unusual).write_text("data", encoding="utf-8")
+            paths = [row["path"] for row in self.module.snapshot(self.repo)["changes"]]
+            self.assertIn(unusual, paths)
+
+    def test_rename_uses_nul_parsing(self) -> None:
         self.git("mv", "tracked.txt", "renamed.txt")
         row = self.module.snapshot(self.repo)["changes"][0]
         self.assertEqual(row["path"], "renamed.txt")
@@ -187,7 +192,14 @@ class SnapshotTests(unittest.TestCase):
 
     def test_inspect_workspace_cli_is_read_only_and_has_check_status(self) -> None:
         (self.repo / "untracked").write_text("keep", encoding="utf-8")
-        before = sorted(path.relative_to(self.repo) for path in self.repo.rglob("*"))
+        index = self.repo / ".git" / "index"
+        before = (
+            (self.repo / "tracked.txt").read_bytes(),
+            (self.repo / "untracked").read_bytes(),
+            index.read_bytes(),
+            index.stat().st_mtime_ns,
+            self.git("rev-parse", "HEAD"),
+        )
         completed = subprocess.run(
             [
                 sys.executable,
@@ -204,7 +216,14 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 1, completed.stderr)
         self.assertTrue(json.loads(completed.stdout)["admission_conflicts_observed"])
         self.assertFalse((self.repo / ".agent-runtime").exists())
-        self.assertEqual(sorted(path.relative_to(self.repo) for path in self.repo.rglob("*")), before)
+        after = (
+            (self.repo / "tracked.txt").read_bytes(),
+            (self.repo / "untracked").read_bytes(),
+            index.read_bytes(),
+            index.stat().st_mtime_ns,
+            self.git("rev-parse", "HEAD"),
+        )
+        self.assertEqual(after, before)
 
     def test_inspect_workspace_cli_sanitizes_missing_repo_error(self) -> None:
         completed = subprocess.run(
