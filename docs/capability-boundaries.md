@@ -4,8 +4,11 @@ Agent Project Governance is a local, advisory context-governance layer. It helps
 
 ## What it can do
 
-- Preview, check, and add only missing governance scaffolding with `project-bootstrap`; existing project-owned files are never overwritten.
+- Preview, check, and add only profile-approved missing governance scaffolding with `project-bootstrap`; existing project-owned files are never overwritten. The default `existing-project` profile treats unselected framework dependencies and ADR conventions as not applicable.
+- Inspect local Git/worktree task-intake evidence without creating runtime state, fetching, checking out, cleaning, or claiming exclusive writer ownership.
 - Create actor-owned local work units under `.agent-runtime/`, checkpoint a concise summary and one next action, resume them, migrate legacy state, and close completed units.
+- Carry a short handoff in existing checkpoint fields, including known dirty work, original blockers, used review rounds, verified facts, and one next bounded action.
+- Provide explicit-invocation guidance for one bounded implementation/review loop and evidence-based closeout without adding another planner, task store, CI engine, or dispatcher.
 - Track project-relative file authorities and canonical public GitHub Issue/PR authorities by identifier and SHA-256 digest without storing their full contents.
 - Detect declared authority drift during explicit `resume`, `evaluate`, `checkpoint`, or `close` operations. Remote checks require authenticated `gh` access.
 - Return deterministic, evidence-linked advisory actions such as `RECONCILE`, `CLOSE`, `CHECKPOINT`, `WORKTREE`, or `CONTINUE` without executing them.
@@ -18,6 +21,7 @@ Agent Project Governance is a local, advisory context-governance layer. It helps
 - It does not own HOW: it does not run implementation, tests, converge, debugging, subagents, new tasks, worktrees, compaction, or handoffs.
 - It does not infer actor ownership. A missing or ambiguous binding must be explicitly resolved or treated as unbound.
 - It does not persist source contents, task copies, chat transcripts, evaluation results, or telemetry.
+- It cannot prove that a local checkout has one writer. Workspace snapshots are observations, not locks, and local `origin/*` refs do not prove current remote state.
 - It does not synchronize `.agent-runtime` across machines or recover state that was never checkpointed.
 - GitHub Issue/PR `github-v2` authority digests cover review-thread resolution and status-check rollups, but not full comments, Actions logs, or arbitrary linked resources. Those require separate authoritative reads.
 - A GitHub transport, permission, or bounded-pagination failure is reported as an unknown authority verdict, never as unchanged evidence. The CLI remains unable to prove freshness until a later explicit check succeeds.
@@ -28,11 +32,12 @@ Agent Project Governance is a local, advisory context-governance layer. It helps
 
 ## Production posture
 
-Current status: **developer preview; shadow/advisory production pilot only**.
+Current status: **unreleased 0.5 developer-preview candidate; shadow/advisory production pilot only**.
 
 Safe current use:
 
 - run `project-bootstrap plan/check` in real repositories;
+- explicitly invoke `eng-task-start`, `eng-bounded-delivery`, or `eng-verified-closeout` for a scoped human-reviewed task;
 - checkpoint and strict-resume non-secret work units;
 - use recommendations as human-reviewed evidence;
 - keep hooks advisory and preserve existing Spec Kit/Superpowers/bridge ownership.
@@ -42,6 +47,7 @@ Do not yet use the plugin as:
 - a deployment or merge gate;
 - the sole source of current GitHub review/CI truth;
 - an autonomous continuation or delegation controller;
+- an automatic trigger chain requiring every task to run all five skills;
 - a substitute for project policy, code review, tests, backups, or access controls.
 
 Repeatable binding resolution, the predeclared original-baseline recovery threshold, the injected authority-drift matrix, and the pinned Spec Kit/Superpowers/bridge handoff smoke passed on 2026-08-20. This permits a limited human-reviewed advisory pilot only. Promotion to a blocking control or autonomous continuation still requires broader repetition, tail-latency reduction, and an explicit V1 decision.

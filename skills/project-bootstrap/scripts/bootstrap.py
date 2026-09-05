@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 
-SCHEMA_VERSION = "0.2"
+SCHEMA_VERSION = "0.3"
 _VERSION_RE = re.compile(r"(?<!\d)(\d+)\.(\d+)\.(\d+)(?!\d)")
 _BRIDGE_NAME = "speckit-superpowers-bridge"
 PROFILE_EXISTING_PROJECT = "existing-project"

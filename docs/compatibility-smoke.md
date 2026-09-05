@@ -14,7 +14,7 @@ Run this protocol in a disposable repository. Installation is intentionally manu
 3. Initialize a Codex Spec Kit project and install bridge `1.1.0` from its pinned release ZIP.
 4. Run the bridge readiness command for actor `codex` and retain its JSON result.
 5. Produce a minimal spec, plan, and `tasks.md`; perform one bridge handoff and verify the handoff reaches `complete`.
-6. Run `project-bootstrap check` and confirm all three dependencies are `verified`.
+6. Run `project-bootstrap check --profile spec-kit-stack` and confirm all three dependencies are `verified`.
 7. Initialize, checkpoint, bind, resume, evaluate, and close one governance work unit around that handoff.
 
 Save the raw bridge readiness and handoff results as JSON objects, then run the executable verifier. The readiness input may be the native v1.1.0 `--readiness --json` output; the verifier accepts the expected pre-feature `bridge_state: warning` only when tools, namespace, package files, and agent metadata are all independently `ready`. It requires exact pinned dependency versions and independently exercises checkpoint, bind, strict resume, authority drift, `RECONCILE`, actor isolation, and close:
