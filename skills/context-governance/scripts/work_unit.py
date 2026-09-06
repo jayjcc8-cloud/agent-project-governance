@@ -65,6 +65,38 @@ SIGNALS = (
     "exploration-heavy",
     "handoff-required",
 )
+MATERIAL_EVENTS = (
+    "WORK_UNIT_STARTED",
+    "AUTHORITY_CHANGED",
+    "HEAD_CHANGED",
+    "BASE_CHANGED",
+    "PRODUCT_DECISION_REQUIRED",
+    "PRODUCT_DECISION_RESOLVED",
+    "FINDING_OPENED",
+    "FINDING_CLOSED",
+    "REVIEW_STARTED",
+    "REVIEW_VERDICT_CHANGED",
+    "REVIEWER_REPLACED",
+    "REPAIR_STARTED",
+    "REPAIR_BUDGET_CHANGED",
+    "REPAIR_COMPLETED",
+    "RECOVERY_REQUIRED",
+    "SESSION_HANDOFF",
+    "MERGE_AUTHORIZED",
+    "MERGED",
+    "POST_MERGE_VERIFIED",
+    "WORK_UNIT_CLOSED",
+)
+_EVIDENCE_REREAD_EVENTS = {
+    "AUTHORITY_CHANGED",
+    "HEAD_CHANGED",
+    "BASE_CHANGED",
+    "FINDING_OPENED",
+    "FINDING_CLOSED",
+    "REVIEW_VERDICT_CHANGED",
+    "RECOVERY_REQUIRED",
+    "SESSION_HANDOFF",
+}
 _ACTION_PRIORITY = {
     "RECONCILE": 0,
     "UPDATE_SPEC": 1,
@@ -132,6 +164,19 @@ def _bounded_list(values: list[str], label: str) -> list[str]:
     if len(values) > _MAX_LIST_ITEMS:
         raise GovernanceError(f"{label} accepts at most {_MAX_LIST_ITEMS} entries")
     return [_bounded_text(value, label) for value in values]
+
+
+def _state_updates(values: list[str]) -> dict[str, str]:
+    updates: dict[str, str] = {}
+    for value in values:
+        key, separator, raw = value.partition("=")
+        if not separator:
+            raise GovernanceError("checkpoint state must use KEY=VALUE")
+        key = _identifier(key.strip(), "checkpoint state key")
+        if key in updates:
+            raise GovernanceError(f"checkpoint state key is duplicated: {key}")
+        updates[key] = _bounded_text(raw, f"checkpoint state value for {key}")
+    return updates
 
 
 def _timestamp(value: Any, label: str, *, nullable: bool = False) -> Optional[str]:
@@ -617,6 +662,15 @@ def _validate_checkpoint(value: Any) -> None:
         if not isinstance(items, list) or not all(isinstance(item, str) for item in items):
             raise GovernanceError(f"work-unit state has invalid {label}")
         _bounded_list(items, label)
+    material_state = value.get("state", {})
+    if not isinstance(material_state, dict) or not all(
+        isinstance(key, str) and isinstance(item, str)
+        for key, item in material_state.items()
+    ):
+        raise GovernanceError("work-unit state has invalid checkpoint state")
+    for key, item in material_state.items():
+        _identifier(key, "checkpoint state key")
+        _bounded_text(item, f"checkpoint state value for {key}")
 
 
 def _validate_state(document: Any, path: Path) -> dict[str, Any]:
@@ -947,13 +1001,16 @@ def _authority_condition(statuses: list[dict[str, Any]]) -> str:
 
 
 def _base_output(state: dict[str, Any]) -> dict[str, Any]:
+    checkpoint = copy.deepcopy(state.get("checkpoint"))
+    if isinstance(checkpoint, dict):
+        checkpoint.setdefault("state", {})
     return {
         "schema_version": state.get("schema_version"),
         "work_unit_id": state.get("work_unit_id"),
         "actor_id": state.get("actor_id"),
         "parent_work_unit_id": state.get("parent_work_unit_id"),
         "status": state.get("status"),
-        "checkpoint": state.get("checkpoint"),
+        "checkpoint": checkpoint,
     }
 
 
@@ -991,6 +1048,138 @@ def _init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _checkpoint_content(checkpoint: Any) -> Optional[dict[str, Any]]:
+    if not isinstance(checkpoint, dict):
+        return None
+    return {
+        "summary": checkpoint["summary"],
+        "next_action": checkpoint["next_action"],
+        "findings": list(checkpoint["findings"]),
+        "failed_attempts": list(checkpoint["failed_attempts"]),
+        "state": dict(checkpoint.get("state", {})),
+    }
+
+
+def _candidate_checkpoint(args: argparse.Namespace, prior: Any) -> dict[str, Any]:
+    previous = _checkpoint_content(prior)
+    if args.summary is None and previous is None:
+        raise GovernanceError("summary is required for the first checkpoint")
+    if args.next_action is None and previous is None:
+        raise GovernanceError("next action is required for the first checkpoint")
+    if args.clear_findings and args.finding is not None:
+        raise GovernanceError("--clear-findings cannot be combined with --finding")
+    material_state = dict(previous["state"]) if previous is not None else {}
+    material_state.update(_state_updates(args.state))
+    return {
+        "summary": (
+            _bounded_text(args.summary, "summary")
+            if args.summary is not None
+            else previous["summary"]
+        ),
+        "next_action": (
+            _bounded_text(args.next_action, "next action")
+            if args.next_action is not None
+            else previous["next_action"]
+        ),
+        "findings": (
+            []
+            if args.clear_findings
+            else _bounded_list(args.finding, "finding")
+            if args.finding is not None
+            else list(previous["findings"] if previous is not None else [])
+        ),
+        "failed_attempts": (
+            _bounded_list(args.failed_attempt, "failed attempt")
+            if args.failed_attempt is not None
+            else list(previous["failed_attempts"] if previous is not None else [])
+        ),
+        "state": material_state,
+    }
+
+
+def _refresh_authorities(root: Path, state: dict[str, Any]) -> list[dict[str, Any]]:
+    local_authorities = [
+        _refresh_authority(root, item)
+        for item in state.get("authorities", [])
+        if item.get("provider") != "github"
+    ]
+    github_values = [
+        (str(item["kind"]), str(item["url"]))
+        for item in state.get("authorities", [])
+        if item.get("provider") == "github"
+    ]
+    refreshed_github = _github_authorities(github_values)
+    refreshed_by_identity = {
+        (item["kind"], item["repository"], item["resource"], item["number"]): item
+        for item in refreshed_github
+    }
+    local_iterator = iter(local_authorities)
+    refreshed = []
+    for item in state.get("authorities", []):
+        if item.get("provider") == "github":
+            refreshed.append(
+                refreshed_by_identity[
+                    (item["kind"], item["repository"], item["resource"], item["number"])
+                ]
+            )
+        else:
+            refreshed.append(next(local_iterator))
+    return refreshed
+
+
+def _authority_digests(authorities: list[dict[str, Any]]) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for item in authorities:
+        identity = item.get("url") or item.get("path")
+        result[f"AUTHORITY_SHA256:{item['kind']}:{identity}"] = str(item["sha256"])
+    return result
+
+
+def _checkpoint_delta(
+    prior: Optional[dict[str, Any]],
+    current: dict[str, Any],
+    prior_authorities: list[dict[str, Any]],
+    current_authorities: list[dict[str, Any]],
+    prior_schema: str,
+) -> list[dict[str, Any]]:
+    before = prior or {
+        "summary": None,
+        "next_action": None,
+        "findings": [],
+        "failed_attempts": [],
+        "state": {},
+    }
+    changes: list[dict[str, Any]] = []
+    labels = {
+        "summary": "SUMMARY",
+        "next_action": "NEXT_ACTION",
+        "findings": "FINDINGS",
+        "failed_attempts": "FAILED_ATTEMPTS",
+    }
+    for key, label in labels.items():
+        if before[key] != current[key]:
+            changes.append({"field": label, "before": before[key], "after": current[key]})
+    before_state = before["state"]
+    current_state = current["state"]
+    for key in sorted(set(before_state) | set(current_state)):
+        if before_state.get(key) != current_state.get(key):
+            changes.append(
+                {"field": key, "before": before_state.get(key), "after": current_state.get(key)}
+            )
+    prior_digests = _authority_digests(prior_authorities)
+    current_digests = _authority_digests(current_authorities)
+    for key in sorted(set(prior_digests) | set(current_digests)):
+        if prior_digests.get(key) != current_digests.get(key):
+            changes.append(
+                {"field": key, "before": prior_digests.get(key), "after": current_digests.get(key)}
+            )
+    if prior_schema != SCHEMA_VERSION:
+        changes.append(
+            {"field": "SCHEMA_VERSION", "before": prior_schema, "after": SCHEMA_VERSION}
+        )
+    return sorted(changes, key=lambda item: str(item["field"]))
+
+
 def _checkpoint(args: argparse.Namespace) -> int:
     root = _project_root(args.project_root)
     path = _unit_path(root, args.work_unit)
@@ -1002,48 +1191,52 @@ def _checkpoint(args: argparse.Namespace) -> int:
         if original.get("status") != "active":
             raise GovernanceError("only active work units can be checkpointed")
         state = _upgrade_state(original)
-        local_authorities = [
-            _refresh_authority(root, item)
-            for item in state.get("authorities", [])
-            if item.get("provider") != "github"
-        ]
-        github_values = [
-            (str(item["kind"]), str(item["url"]))
-            for item in state.get("authorities", [])
-            if item.get("provider") == "github"
-        ]
-        refreshed_github = _github_authorities(github_values)
-        refreshed_by_identity = {
-            (item["kind"], item["repository"], item["resource"], item["number"]): item
-            for item in refreshed_github
-        }
-        local_iterator = iter(local_authorities)
-        refreshed = []
-        for item in state.get("authorities", []):
-            if item.get("provider") == "github":
-                refreshed.append(
-                    refreshed_by_identity[
-                        (item["kind"], item["repository"], item["resource"], item["number"])
-                    ]
-                )
-            else:
-                refreshed.append(next(local_iterator))
         prior = state.get("checkpoint")
-        sequence = int(prior.get("sequence", 0)) + 1 if isinstance(prior, dict) else 1
-        recorded_at = _now()
-        state["authorities"] = refreshed
-        state["checkpoint"] = {
-            "sequence": sequence,
-            "recorded_at": recorded_at,
-            "summary": _bounded_text(args.summary, "summary"),
-            "next_action": _bounded_text(args.next_action, "next action"),
-            "findings": _bounded_list(args.finding, "finding"),
-            "failed_attempts": _bounded_list(args.failed_attempt, "failed attempt"),
+        prior_content = _checkpoint_content(prior)
+        candidate = _candidate_checkpoint(args, prior)
+        evidence_reread = (
+            args.event in _EVIDENCE_REREAD_EVENTS
+            or original.get("schema_version") != SCHEMA_VERSION
+        )
+        prior_authorities = list(state.get("authorities", []))
+        current_authorities = (
+            _refresh_authorities(root, state) if evidence_reread else prior_authorities
+        )
+        delta = _checkpoint_delta(
+            prior_content,
+            candidate,
+            prior_authorities,
+            current_authorities,
+            str(original.get("schema_version")),
+        )
+        state_changed = bool(delta)
+        if state_changed:
+            sequence = int(prior.get("sequence", 0)) + 1 if isinstance(prior, dict) else 1
+            recorded_at = _now()
+            state["authorities"] = current_authorities
+            state["checkpoint"] = {
+                "sequence": sequence,
+                "recorded_at": recorded_at,
+                **candidate,
+            }
+            state["revision"] = int(state.get("revision", 0)) + 1
+            state["updated_at"] = recorded_at
+            _write_document(path, state)
+        else:
+            sequence = int(prior.get("sequence", 0)) if isinstance(prior, dict) else None
+        output = {
+            "work_unit_id": original["work_unit_id"],
+            "actor_id": original["actor_id"],
+            "event": args.event,
+            "state_changed": state_changed,
+            "state_written": state_changed,
+            "evidence_reread": evidence_reread,
+            "full_snapshot": False,
+            "delta": delta,
+            "revision": state.get("revision"),
+            "checkpoint_sequence": sequence,
         }
-        state["revision"] = int(state.get("revision", 0)) + 1
-        state["updated_at"] = recorded_at
-        _write_document(path, state)
-    _print(state)
+    _print(output)
     return 0
 
 
@@ -1412,10 +1605,13 @@ def _parser() -> argparse.ArgumentParser:
     initialize.add_argument("--authority", nargs=2, action="append", default=[])
     initialize.add_argument("--github-authority", nargs=2, action="append", default=[])
     checkpoint = subparsers.choices["checkpoint"]
-    checkpoint.add_argument("--summary", required=True)
-    checkpoint.add_argument("--next-action", required=True)
-    checkpoint.add_argument("--finding", action="append", default=[])
-    checkpoint.add_argument("--failed-attempt", action="append", default=[])
+    checkpoint.add_argument("--event", choices=MATERIAL_EVENTS, default="SESSION_HANDOFF")
+    checkpoint.add_argument("--summary")
+    checkpoint.add_argument("--next-action")
+    checkpoint.add_argument("--finding", action="append")
+    checkpoint.add_argument("--clear-findings", action="store_true")
+    checkpoint.add_argument("--failed-attempt", action="append")
+    checkpoint.add_argument("--state", action="append", default=[])
     subparsers.choices["resume"].add_argument("--strict", action="store_true")
     evaluate = subparsers.choices["evaluate"]
     evaluate.add_argument("--event", choices=EVENTS, default="manual")

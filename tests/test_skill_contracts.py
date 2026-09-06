@@ -51,6 +51,34 @@ class SkillContractTests(unittest.TestCase):
         ):
             self.assertIn(phrase, normalized)
 
+    def test_replacement_reviewer_continues_the_same_bounded_round(self) -> None:
+        skill = (SKILLS / "eng-bounded-delivery" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        review = (
+            SKILLS / "eng-bounded-delivery" / "assets" / "review.md"
+        ).read_text(encoding="utf-8")
+        normalized = re.sub(r"\s+", " ", f"{skill} {review}".lower())
+
+        for phrase in (
+            "same reviewer is preferred",
+            "genuinely unavailable",
+            "one replacement reviewer",
+            "same verification round",
+            "review round",
+            "repair budget",
+            "existing findings",
+            "acceptance criteria",
+            "reviewed target",
+            "severity rules",
+            "did not implement the current repair",
+            "read-only",
+            "not a second review layer",
+            "current exact head",
+        ):
+            self.assertIn(phrase, normalized)
+        self.assertIn("REPLACEMENT_BLOCKER_VERIFICATION", review)
+
     def test_every_skill_local_markdown_link_resolves(self) -> None:
         for skill in SKILLS.glob("*/SKILL.md"):
             for relative in re.findall(r"\]\(([^)]+)\)", skill.read_text(encoding="utf-8")):

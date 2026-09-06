@@ -116,7 +116,10 @@ class WorkUnitTests(unittest.TestCase):
             tasks = self.initialize(root)
             checkpoint = self.checkpoint(root)
             self.assertEqual(checkpoint.returncode, 0, checkpoint.stderr)
-            state = json.loads(checkpoint.stdout)
+            checkpoint_output = json.loads(checkpoint.stdout)
+            self.assertTrue(checkpoint_output["state_written"])
+            self.assertFalse(checkpoint_output["full_snapshot"])
+            state = json.loads(self.state_path(root).read_text(encoding="utf-8"))
             self.assertEqual(state["schema_version"], "0.4")
             self.assertEqual(state["revision"], 2)
             resumed = self.run_cli(
@@ -139,6 +142,250 @@ class WorkUnitTests(unittest.TestCase):
             self.assertFalse(result["workspace"]["checked"])
             self.assertFalse(result["diagnostics"]["persisted"])
             self.assertEqual(tasks.read_text(encoding="utf-8"), "- [ ] T001 Build the feature\n")
+
+    def test_checkpoint_emits_deterministic_delta_and_persists_canonical_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            started = self.run_cli(
+                root,
+                "checkpoint",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--event",
+                "WORK_UNIT_STARTED",
+                "--summary",
+                "Candidate abc is under review.",
+                "--next-action",
+                "Wait for the current reviewer.",
+                "--finding",
+                "P1 finding remains open.",
+                "--state",
+                "HEAD=abc",
+                "--state",
+                "T1_REVIEW=PENDING",
+                "--state",
+                "BLOCKING_FINDINGS=1",
+                "--state",
+                "REPAIR_USED=1/2",
+            )
+            self.assertEqual(started.returncode, 0, started.stderr)
+            started_output = json.loads(started.stdout)
+            self.assertTrue(started_output["state_changed"])
+            self.assertTrue(started_output["state_written"])
+            self.assertFalse(started_output["full_snapshot"])
+
+            reviewed = self.run_cli(
+                root,
+                "checkpoint",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--event",
+                "REVIEW_VERDICT_CHANGED",
+                "--clear-findings",
+                "--state",
+                "T1_REVIEW=PASS",
+                "--state",
+                "BLOCKING_FINDINGS=0",
+            )
+            self.assertEqual(reviewed.returncode, 0, reviewed.stderr)
+            output = json.loads(reviewed.stdout)
+            self.assertEqual(
+                output["delta"],
+                [
+                    {"after": "0", "before": "1", "field": "BLOCKING_FINDINGS"},
+                    {
+                        "after": [],
+                        "before": ["P1 finding remains open."],
+                        "field": "FINDINGS",
+                    },
+                    {"after": "PASS", "before": "PENDING", "field": "T1_REVIEW"},
+                ],
+            )
+            self.assertTrue(output["evidence_reread"])
+            self.assertNotIn("checkpoint", output)
+            canonical = json.loads(self.state_path(root).read_text(encoding="utf-8"))
+            self.assertEqual(
+                canonical["checkpoint"]["state"],
+                {
+                    "BLOCKING_FINDINGS": "0",
+                    "HEAD": "abc",
+                    "REPAIR_USED": "1/2",
+                    "T1_REVIEW": "PASS",
+                },
+            )
+
+    def test_checkpoint_reports_head_and_repair_budget_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            tasks = self.initialize(root)
+            first = self.run_cli(
+                root,
+                "checkpoint",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--event",
+                "WORK_UNIT_STARTED",
+                "--summary",
+                "Candidate state.",
+                "--next-action",
+                "Continue.",
+                "--state",
+                "HEAD=abc",
+                "--state",
+                "REPAIR_USED=0/1",
+            )
+            self.assertEqual(first.returncode, 0, first.stderr)
+            tasks.write_text("- [x] T001 Build the feature\n", encoding="utf-8")
+            changed = self.run_cli(
+                root,
+                "checkpoint",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--event",
+                "HEAD_CHANGED",
+                "--state",
+                "HEAD=def",
+                "--state",
+                "REPAIR_USED=1/1",
+            )
+            self.assertEqual(changed.returncode, 0, changed.stderr)
+            output = json.loads(changed.stdout)
+            self.assertTrue(output["evidence_reread"])
+            changed_fields = {item["field"] for item in output["delta"]}
+            self.assertIn("HEAD", changed_fields)
+            self.assertIn("REPAIR_USED", changed_fields)
+            self.assertTrue(any(field.startswith("AUTHORITY_SHA256:") for field in changed_fields))
+
+    def test_unchanged_checkpoint_skips_write_and_evidence_reread(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            first = self.run_cli(
+                root,
+                "checkpoint",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--event",
+                "REPAIR_BUDGET_CHANGED",
+                "--summary",
+                "Repair remains bounded.",
+                "--next-action",
+                "Complete the one repair.",
+                "--state",
+                "REPAIR_USED=1/1",
+            )
+            self.assertEqual(first.returncode, 0, first.stderr)
+            before = self.state_path(root).read_bytes()
+            repeated = self.run_cli(
+                root,
+                "checkpoint",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--event",
+                "REPAIR_COMPLETED",
+                "--state",
+                "REPAIR_USED=1/1",
+            )
+            self.assertEqual(repeated.returncode, 0, repeated.stderr)
+            output = json.loads(repeated.stdout)
+            self.assertFalse(output["state_changed"])
+            self.assertFalse(output["state_written"])
+            self.assertFalse(output["evidence_reread"])
+            self.assertFalse(output["full_snapshot"])
+            self.assertEqual(output["delta"], [])
+            self.assertEqual(self.state_path(root).read_bytes(), before)
+
+    def test_recovery_returns_canonical_state_then_unchanged_update_is_delta_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            created = self.run_cli(
+                root,
+                "checkpoint",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--event",
+                "RECOVERY_REQUIRED",
+                "--summary",
+                "Recover the accepted checkpoint.",
+                "--next-action",
+                "Continue from the recorded HEAD.",
+                "--state",
+                "HEAD=abc",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            recovered = self.run_cli(
+                root,
+                "resume",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--strict",
+            )
+            self.assertEqual(recovered.returncode, 0, recovered.stderr)
+            recovery = json.loads(recovered.stdout)
+            self.assertEqual(recovery["checkpoint"]["state"], {"HEAD": "abc"})
+            before = self.state_path(root).read_bytes()
+            repeated = self.run_cli(
+                root,
+                "checkpoint",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--event",
+                "REPAIR_COMPLETED",
+                "--state",
+                "HEAD=abc",
+            )
+            self.assertEqual(repeated.returncode, 0, repeated.stderr)
+            output = json.loads(repeated.stdout)
+            self.assertFalse(output["full_snapshot"])
+            self.assertFalse(output["state_written"])
+            self.assertEqual(self.state_path(root).read_bytes(), before)
+
+    def test_recovery_normalizes_pre_change_v04_checkpoint_without_writing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            checkpointed = self.checkpoint(root)
+            self.assertEqual(checkpointed.returncode, 0, checkpointed.stderr)
+            path = self.state_path(root)
+            legacy = json.loads(path.read_text(encoding="utf-8"))
+            legacy["checkpoint"].pop("state")
+            path.write_text(json.dumps(legacy, sort_keys=True) + "\n", encoding="utf-8")
+            before = path.read_bytes()
+
+            resumed = self.run_cli(
+                root,
+                "resume",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--strict",
+            )
+
+            self.assertEqual(resumed.returncode, 0, resumed.stderr)
+            recovery = json.loads(resumed.stdout)
+            self.assertEqual(recovery["checkpoint"]["state"], {})
+            self.assertEqual(path.read_bytes(), before)
 
     def test_handoff_checkpoint_preserves_blocker_budget_dirty_work_and_next_action(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -354,7 +601,9 @@ class WorkUnitTests(unittest.TestCase):
             self.write_legacy_state(root)
             checkpoint = self.checkpoint(root, summary="Legacy upgraded.")
             self.assertEqual(checkpoint.returncode, 0, checkpoint.stderr)
-            state = json.loads(checkpoint.stdout)
+            output = json.loads(checkpoint.stdout)
+            self.assertTrue(output["state_written"])
+            state = json.loads(self.state_path(root).read_text(encoding="utf-8"))
             self.assertEqual(state["schema_version"], "0.4")
             self.assertEqual(state["revision"], 2)
 
@@ -620,8 +869,8 @@ class WorkUnitTests(unittest.TestCase):
             self.assertEqual(first.returncode, 0, first_error)
             self.assertEqual(second.returncode, 0, second_error)
             state = json.loads(self.state_path(root).read_text(encoding="utf-8"))
-            self.assertEqual(state["checkpoint"]["sequence"], 2)
-            self.assertEqual(state["revision"], 3)
+            self.assertEqual(state["checkpoint"]["sequence"], 1)
+            self.assertEqual(state["revision"], 2)
             self.assertEqual(list(self.state_path(root).parent.glob(".state.*")), [])
 
     def test_github_authority_ignores_transport_noise_and_detects_governance_change(self) -> None:
