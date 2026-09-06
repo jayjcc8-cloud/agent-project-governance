@@ -55,6 +55,27 @@ Keep the change focused and include:
 Do not mix product behavior, release changes, or unrelated cleanup into a
 documentation or community-maintenance PR.
 
+## Clean up merged branches
+
+Delete a branch only when it has no open pull request, no active task or
+binding, and no worktree containing required work. One of these delivery checks
+must also pass:
+
+- the branch head is reachable from the current `main`; or
+- squash equivalence is proven: the associated pull request is merged, its
+  recorded head SHA equals the branch head, the pull-request head tree equals
+  the merge-commit tree, and that merge commit is reachable from current
+  `main`.
+
+`git rev-list origin/main..origin/<branch>` remains useful diagnostic evidence,
+but a nonzero count is not by itself a deletion blocker after a squash merge.
+Commit topology and delivered content are separate facts.
+
+Before removing an associated worktree, confirm that it is clean, has no active
+task binding, and contains no unpushed required work. Remove a clean worktree
+normally; never use force to bypass a failed safety check. If any fact is
+missing or contradictory, preserve the branch and investigate it separately.
+
 ## Changes that will not be accepted
 
 APG is not a project manager, orchestration engine, IDE, or replacement for
