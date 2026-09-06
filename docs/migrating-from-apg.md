@@ -14,16 +14,18 @@ to finish every task that could still reference the installed APG plugin,
 remove APG through the supported Codex plugin lifecycle, and then install
 RepoKeel as a separate plugin identity.
 
-Until RepoKeel `v0.5.0` is published, use the current source candidate only in a
-disposable or explicitly authorized environment:
+Until RepoKeel `v0.5.0` is published, validate the current source candidate
+directly in a disposable or explicitly authorized checkout:
 
 ```bash
-codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref main
-codex plugin add repokeel@repokeel
+python3 -m unittest discover -s tests -v
+python3 scripts/validate_package.py
 ```
 
-After the first RepoKeel release, use its versioned source and follow the
-release notes for the exact supported command.
+After RepoKeel `v0.5.0` is published, use its versioned source and follow the
+release notes for the exact supported installation command. The repository's
+marketplace entry intentionally pins that release tag and therefore cannot
+install an unpublished `main` candidate.
 
 ## What remains compatible
 

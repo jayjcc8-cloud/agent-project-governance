@@ -31,15 +31,21 @@ authoritative.
 
 ## Quick Start
 
-RepoKeel `v0.5.0` is an unreleased development candidate. To evaluate the
-current source from this repository before the first RepoKeel release:
+RepoKeel `v0.5.0` is an unreleased development candidate. Before its first
+release, validate a source checkout directly:
 
 ```bash
-codex plugin marketplace add jayjcc8-cloud/agent-project-governance --ref main
-codex plugin add repokeel@repokeel
+python3 -m unittest discover -s tests -v
+python3 scripts/validate_package.py
 ```
 
-Open a Git repository in Codex and ask:
+After RepoKeel `v0.5.0` is published, its versioned marketplace and plugin
+install commands become the supported first-use path. The unreleased
+marketplace entry intentionally pins `v0.5.0`, so it is not advertised as an
+installable `main` snapshot.
+
+After installing a published RepoKeel release, open a Git repository in Codex
+and ask:
 
 > Inspect this project with RepoKeel and preview its setup. Do not change
 > existing files.

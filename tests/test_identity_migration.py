@@ -64,6 +64,19 @@ class RepoKeelIdentityTests(unittest.TestCase):
         self.assertIn('repokeel-${GITHUB_REF_NAME}.zip.sha256', workflow)
         self.assertNotIn('agent-project-governance-${GITHUB_REF_NAME}.zip', workflow)
 
+    def test_unreleased_docs_do_not_advertise_an_unresolvable_marketplace_ref(self) -> None:
+        current_docs = "\n".join(
+            (
+                (ROOT / "README.md").read_text(encoding="utf-8"),
+                (ROOT / "docs" / "migrating-from-apg.md").read_text(encoding="utf-8"),
+            )
+        )
+        self.assertNotIn(
+            "plugin marketplace add jayjcc8-cloud/agent-project-governance --ref main",
+            current_docs,
+        )
+        self.assertIn("After RepoKeel `v0.5.0` is published", current_docs)
+
     def test_legacy_apg_state_is_read_without_rewrite(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory) / "legacy-project"

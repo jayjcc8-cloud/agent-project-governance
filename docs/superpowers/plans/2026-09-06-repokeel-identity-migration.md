@@ -191,8 +191,10 @@ Latest published legacy preview: APG v0.4.1
 V1 acceptance: pending against the frozen APG V1 contract established before the rename.
 ```
 
-Keep old-slug badges, links, and install commands for the brief pre-rename PR 1
-window. Do not call the historical contract a RepoKeel V1 contract.
+Keep old-slug badges and links for the brief pre-rename PR 1 window. Because the
+marketplace entry intentionally pins the unpublished `v0.5.0` tag, document
+source validation rather than advertising an unresolvable `main` install. Do
+not call the historical contract a RepoKeel V1 contract.
 
 - [ ] **Step 2: Update current community and product-boundary docs**
 
@@ -209,9 +211,10 @@ v0.4.x and earlier: Agent Project Governance / agent-project-governance
 v0.5.0 and later: RepoKeel / repokeel
 ```
 
-Document explicit old-plugin removal/new-plugin installation, project-state
-compatibility, preserved schemas and Skill IDs, no automatic plugin identity
-upgrade, no runtime-state rewrite, and the permanently reserved old repo slug.
+Document explicit old-plugin removal/new-plugin installation after release,
+source validation before release, project-state compatibility, preserved
+schemas and Skill IDs, no automatic plugin identity upgrade, no runtime-state
+rewrite, and the permanently reserved old repo slug.
 
 - [ ] **Step 4: Audit classifications instead of replacing all strings**
 
