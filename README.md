@@ -4,8 +4,8 @@ Persistent project state for AI coding agents.
 
 > Preserve the state of the work, not the state of the conversation.
 
-[![CI](https://github.com/jayjcc8-cloud/agent-project-governance/actions/workflows/ci.yml/badge.svg)](https://github.com/jayjcc8-cloud/agent-project-governance/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/jayjcc8-cloud/agent-project-governance?include_prereleases&label=latest%20preview)](https://github.com/jayjcc8-cloud/agent-project-governance/releases/tag/v0.4.1)
+[![CI](https://github.com/jayjcc8-cloud/repokeel/actions/workflows/ci.yml/badge.svg)](https://github.com/jayjcc8-cloud/repokeel/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/jayjcc8-cloud/repokeel?include_prereleases&label=latest%20preview)](https://github.com/jayjcc8-cloud/repokeel/releases/tag/v0.4.1)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -40,9 +40,16 @@ python3 scripts/validate_package.py
 ```
 
 After RepoKeel `v0.5.0` is published, its versioned marketplace and plugin
-install commands become the supported first-use path. The unreleased
-marketplace entry intentionally pins `v0.5.0`, so it is not advertised as an
-installable `main` snapshot.
+install commands become the supported first-use path:
+
+```bash
+codex plugin marketplace add jayjcc8-cloud/repokeel --ref v0.5.0
+codex plugin add repokeel@repokeel
+```
+
+The unreleased marketplace entry intentionally pins `v0.5.0`, so these
+commands will resolve only after that tag is published; RepoKeel is not
+advertised as an installable `main` snapshot.
 
 After installing a published RepoKeel release, open a Git repository in Codex
 and ask:
@@ -138,9 +145,9 @@ Start with the [documentation index](docs/README.md), then use the
 
 External contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md)
 for setup, validation, branch naming, and scope guidance. Look for
-[`good first issue`](https://github.com/jayjcc8-cloud/agent-project-governance/labels/good%20first%20issue)
+[`good first issue`](https://github.com/jayjcc8-cloud/repokeel/labels/good%20first%20issue)
 or
-[`help wanted`](https://github.com/jayjcc8-cloud/agent-project-governance/labels/help%20wanted)
+[`help wanted`](https://github.com/jayjcc8-cloud/repokeel/labels/help%20wanted)
 to get started.
 
 ## Security

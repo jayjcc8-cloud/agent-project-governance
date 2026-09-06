@@ -4,10 +4,10 @@ Choose the channel that matches your request:
 
 | Request | Where to go |
 |---|---|
-| Reproducible bug | [Open a bug report](https://github.com/jayjcc8-cloud/agent-project-governance/issues/new?template=bug.yml) |
-| Feature request | [Open a feature request](https://github.com/jayjcc8-cloud/agent-project-governance/issues/new?template=feature.yml) |
-| Usage question | [Ask in Q&A](https://github.com/jayjcc8-cloud/agent-project-governance/discussions/categories/q-a) |
-| Early idea | [Start an Ideas discussion](https://github.com/jayjcc8-cloud/agent-project-governance/discussions/categories/ideas) |
+| Reproducible bug | [Open a bug report](https://github.com/jayjcc8-cloud/repokeel/issues/new?template=bug.yml) |
+| Feature request | [Open a feature request](https://github.com/jayjcc8-cloud/repokeel/issues/new?template=feature.yml) |
+| Usage question | [Ask in Q&A](https://github.com/jayjcc8-cloud/repokeel/discussions/categories/q-a) |
+| Early idea | [Start an Ideas discussion](https://github.com/jayjcc8-cloud/repokeel/discussions/categories/ideas) |
 | Security vulnerability | Follow [SECURITY.md](SECURITY.md) |
 
 RepoKeel is maintained as an open-source developer preview. Support is best effort;

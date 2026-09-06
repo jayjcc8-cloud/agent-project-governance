@@ -12,7 +12,7 @@ Do not open a public Issue for an exploitable vulnerability or include secrets,
 tokens, private repository data, or working exploit details in public logs.
 
 Use GitHub's
-[private vulnerability reporting form](https://github.com/jayjcc8-cloud/agent-project-governance/security/advisories/new)
+[private vulnerability reporting form](https://github.com/jayjcc8-cloud/repokeel/security/advisories/new)
 and include:
 
 - affected version or commit;

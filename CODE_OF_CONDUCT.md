@@ -37,7 +37,7 @@ represents the project in public spaces.
 ## Reporting and enforcement
 
 Report abusive, harassing, or otherwise unacceptable behavior privately through
-the repository's [private reporting form](https://github.com/jayjcc8-cloud/agent-project-governance/security/advisories/new).
+the repository's [private reporting form](https://github.com/jayjcc8-cloud/repokeel/security/advisories/new).
 Mark the report as a Code of Conduct matter. Maintainers will acknowledge the
 report, review it confidentially, and respond with any next steps they can share.
 
