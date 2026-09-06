@@ -1,0 +1,52 @@
+name: Feature request
+description: Propose a focused improvement within APG's continuity boundary.
+title: "enhancement: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you solving?
+      description: Describe the concrete continuity or recovery problem before proposing a solution.
+    validations:
+      required: true
+  - type: textarea
+    id: why_apg
+    attributes:
+      label: Why should APG solve it?
+      description: Explain why this belongs in APG instead of GitHub, Git, CI, an IDE, or a project-management tool.
+    validations:
+      required: true
+  - type: dropdown
+    id: boundary
+    attributes:
+      label: Product area
+      options:
+        - Task continuity
+        - Context continuity
+        - Task-source realignment
+        - Worktree boundary
+        - Recovery or budget continuity
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe an observable result, not an implementation mandate.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include existing tools or project processes that might already solve the problem.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request does not ask APG to become a project manager, IDE, or agent orchestrator.
+          required: true
