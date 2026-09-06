@@ -21,13 +21,24 @@ Do not create another task plan, review state machine, dispatcher, or ledger.
    read-only primary review using [the review contract](assets/review.md).
 5. A blocker must identify a reachable path, concrete reproduction or trace, the
    violated acceptance criterion or direct risk, and a minimal test or fix.
-6. If blocked, make one concentrated repair for all qualifying blockers and ask
-   the original reviewer for one verification limited to those blockers and
-   direct regressions. A replacement reviewer may continue that same verification
-   only when the original context is unavailable; the primary round is not reset.
+6. If blocked, make one concentrated repair for all qualifying blockers. The
+   same reviewer is preferred for one verification limited to those blockers and
+   direct regressions. When that reviewer's context is genuinely unavailable,
+   one replacement reviewer may continue the same verification round without a
+   Product Owner exception. The replacement inherits the review round, repair
+   budget, existing findings, acceptance criteria, reviewed target, scope, and
+   severity rules; none is reset. The replacement must be independent from the
+   writer, must have read-only permissions, and must confirm that they did not
+   implement the current repair. This is not a second review layer, and at most
+   one independent reviewer may be active. A replacement is not allowed merely
+   because the existing verdict is inconvenient or blocking.
 7. If an original blocker remains, keep the candidate unmerged. Budget exhaustion
    never converts failure into approval. Record non-catastrophic out-of-scope
    discoveries in the existing backlog without starting them.
+
+Every verdict applies only to the current exact HEAD. Any HEAD change invalidates
+the earlier verdict and requires fresh verification; reviewer replacement never
+permits a verdict for an older commit to be reused.
 
 Authorization to implement does not imply permission to merge, publish, delete,
 install, or change host settings. Domain-specific patterns are available only

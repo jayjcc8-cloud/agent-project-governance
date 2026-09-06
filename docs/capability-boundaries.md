@@ -18,6 +18,10 @@ available, but auxiliary mechanism breadth is not the V1 product definition.
 - Create actor-owned local work units under `.agent-runtime/`, checkpoint a concise summary and one next action, resume them, migrate legacy state, and close completed units.
 - Carry a short handoff in existing checkpoint fields, including known dirty work, original blockers, used review rounds, verified facts, and one next bounded action.
 - Provide explicit-invocation guidance for one bounded implementation/review loop and evidence-based closeout without adding another planner, task store, CI engine, or dispatcher.
+- Prefer the same reviewer for blocker verification, while permitting one
+  independent read-only replacement when the original reviewer context is
+  genuinely unavailable. The replacement continues the same round and inherited
+  repair budget against the current exact HEAD; it is not another review layer.
 - Track project-relative file authorities and canonical public GitHub Issue/PR authorities by identifier and SHA-256 digest without storing their full contents.
 - Detect declared authority drift during explicit `resume`, `evaluate`, `checkpoint`, or `close` operations. Remote checks require authenticated `gh` access.
 - Return deterministic, evidence-linked advisory actions such as `RECONCILE`, `CLOSE`, `CHECKPOINT`, `WORKTREE`, or `CONTINUE` without executing them.
