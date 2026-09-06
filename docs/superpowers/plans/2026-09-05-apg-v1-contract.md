@@ -46,7 +46,7 @@
 
 - [x] **Step 1:** Add per-task fields for continuity, product result, concrete APG impact, overhead, avoided rework, and separate knowledge reuse evidence.
 - [x] **Step 2:** Encode that `APG_ACCEPTANCE=PASS` requires a concrete continuity/context problem solved or avoided and no product-development blockage.
-- [x] **Step 3:** Add three-task coverage guidance and final questions about recurrence without APG, overhead, and mechanisms with no demonstrated value.
+- [x] **Step 3:** Add three-task coverage guidance and final questions about recurrence without APG, overhead, and mechanisms with no demonstrated value; keep any follow-on product decision separately authorized.
 - [x] **Step 4:** Reclassify prior trial records in `docs/trials.md` as historical mechanism evidence and link the new V1 value template.
 
 ### Task 3: Verification and bounded closeout

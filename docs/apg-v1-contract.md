@@ -4,6 +4,14 @@
 
 > APG is the execution-continuity and context-support layer for an agent working on real development tasks. It is not the project's source of truth, technical approver, drift detector, or knowledge-governance system.
 
+Current product status:
+
+```text
+APG_V1_ACCEPTANCE=PENDING_THREE_REAL_PRODUCT_TASKS
+```
+
+Per-task `APG_ACCEPTANCE` evidence does not change this global status. A later V1 acceptance decision requires the completed three-task evidence window and separate authorization.
+
 Repository state and the project's accepted Spec, Issue, PR, Git, and CI artifacts remain authoritative for product work and acceptance. APG may retain identifiers, hashes, a concise checkpoint, and current workspace observations. It does not replace or silently reinterpret those authorities.
 
 ## V1 core capabilities
@@ -79,4 +87,4 @@ APG stores no knowledge-base contents in `.agent-runtime/` and does not treat a 
 
 Use [the three-real-task value evaluation](apg-v1-three-task-value-evaluation.md) for the initial observation window. The three tasks should collectively cover ordinary continuation, a real task-source change, and a naturally occurring interruption or new-session recovery. Do not manufacture a failure solely to satisfy the matrix.
 
-After the window, decide which APG mechanisms to retain, remove, or automate based on demonstrated product value. A mechanism with no demonstrated value is a deletion candidate, not a reason for further governance enhancement.
+After the window, summarize which APG mechanisms demonstrated product value and which did not. This evidence window does not authorize deleting auxiliary capabilities, adding automation, or changing the V1 contract; any such decision is separate work requiring explicit authorization.

@@ -2,6 +2,14 @@
 
 Use this document once for the initial three-task observation window. Copy the per-task record for Task A, Task B, and Task C. Record concise evidence, not chat transcripts, secrets, or source-file contents.
 
+The global product status remains:
+
+```text
+APG_V1_ACCEPTANCE=PENDING_THREE_REAL_PRODUCT_TASKS
+```
+
+The per-task `APG_ACCEPTANCE` field below records evidence for the window; it does not promote the global status.
+
 The three tasks are an initial decision window, not a permanent governance requirement. Prefer work that already belongs on the product roadmap:
 
 - **Task A — ordinary continuation:** observe whether APG helps or impedes normal product delivery.
@@ -97,15 +105,15 @@ Answer these questions with references to the three task records:
 2. What overhead did APG add to avoid or contain those problems?
 3. Which APG mechanisms never demonstrated product value?
 
-Then record:
+Then record the evidence summary:
 
 ```text
-APG_V1_DECISION=RETAIN | NARROW | REMOVE | INSUFFICIENT_EVIDENCE
-RETAIN=
-REMOVE=
-AUTOMATE=
+APG_V1_EVIDENCE_REVIEW=COMPLETE | INCOMPLETE
+DEMONSTRATED_VALUE=
+NO_DEMONSTRATED_VALUE=
 MISSING_EVIDENCE=
 DECISION_EVIDENCE=
+NEXT_DECISION=SEPARATE_AUTHORIZATION_REQUIRED
 ```
 
-Do not restart ADG, add knowledge automation, or expand APG governance from this review without a separately authorized product need.
+Completing this evidence review does not change `APG_V1_ACCEPTANCE=PENDING_THREE_REAL_PRODUCT_TASKS`. Do not delete auxiliary capabilities, restart ADG, add automation, or expand APG governance without separate authorization.
