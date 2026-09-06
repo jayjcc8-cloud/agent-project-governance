@@ -12,6 +12,9 @@
 - Merge, cleanup, and publish authorization, each considered separately:
 
 Encode this information with the existing checkpoint `summary`, `findings`,
-`failed_attempts`, and `next_action` fields. Do not paste full logs, private
+`failed_attempts`, `next_action`, and structured `state` fields under the
+`SESSION_HANDOFF` material event. Preserve inherited review/repair usage and send
+only fields that changed; `resume` supplies the full canonical recovery view.
+Do not paste full logs, private
 paths, credentials, or hidden reasoning. The receiving actor must independently
 verify mutable facts before writing; this handoff is not a writer lock.
