@@ -25,6 +25,15 @@ STABLE_SKILL_IDS = {
     "eng-verified-closeout",
     "project-bootstrap",
 }
+CANONICAL_REPOSITORY_FILES = (
+    ROOT / ".codex-plugin" / "plugin.json",
+    ROOT / ".agents" / "plugins" / "marketplace.json",
+    ROOT / ".github" / "ISSUE_TEMPLATE" / "config.yml",
+    ROOT / "README.md",
+    ROOT / "CODE_OF_CONDUCT.md",
+    ROOT / "SECURITY.md",
+    ROOT / "SUPPORT.md",
+)
 
 
 def load_module(name: str, path: Path):
@@ -76,6 +85,33 @@ class RepoKeelIdentityTests(unittest.TestCase):
             current_docs,
         )
         self.assertIn("After RepoKeel `v0.5.0` is published", current_docs)
+
+    def test_current_metadata_and_public_links_use_canonical_repository(self) -> None:
+        old_repository = "jayjcc8-cloud/agent-project-governance"
+        canonical_repository = "jayjcc8-cloud/repokeel"
+        for path in CANONICAL_REPOSITORY_FILES:
+            content = path.read_text(encoding="utf-8")
+            self.assertNotIn(old_repository, content, path)
+            self.assertIn(canonical_repository, content, path)
+
+        migration_guide = (ROOT / "docs" / "migrating-from-apg.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(old_repository, migration_guide)
+        self.assertIn(canonical_repository, migration_guide)
+
+    def test_published_install_path_is_versioned_and_uses_repokeel_identity(self) -> None:
+        current_docs = "\n".join(
+            (
+                (ROOT / "README.md").read_text(encoding="utf-8"),
+                (ROOT / "docs" / "migrating-from-apg.md").read_text(encoding="utf-8"),
+            )
+        )
+        self.assertIn(
+            "codex plugin marketplace add jayjcc8-cloud/repokeel --ref v0.5.0",
+            current_docs,
+        )
+        self.assertIn("codex plugin add repokeel@repokeel", current_docs)
 
     def test_legacy_apg_state_is_read_without_rewrite(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -22,10 +22,17 @@ python3 -m unittest discover -s tests -v
 python3 scripts/validate_package.py
 ```
 
-After RepoKeel `v0.5.0` is published, use its versioned source and follow the
-release notes for the exact supported installation command. The repository's
-marketplace entry intentionally pins that release tag and therefore cannot
-install an unpublished `main` candidate.
+After RepoKeel `v0.5.0` is published, add its versioned marketplace and install
+the new plugin identity:
+
+```bash
+codex plugin marketplace add jayjcc8-cloud/repokeel --ref v0.5.0
+codex plugin add repokeel@repokeel
+```
+
+The marketplace entry intentionally pins that release tag, so these commands
+cannot install the unpublished candidate and do not provide an in-place APG
+upgrade.
 
 ## What remains compatible
 

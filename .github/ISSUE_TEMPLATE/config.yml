@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Usage questions
-    url: https://github.com/jayjcc8-cloud/agent-project-governance/discussions/categories/q-a
+    url: https://github.com/jayjcc8-cloud/repokeel/discussions/categories/q-a
     about: Ask how to install, configure, or use RepoKeel.
   - name: Ideas and early proposals
-    url: https://github.com/jayjcc8-cloud/agent-project-governance/discussions/categories/ideas
+    url: https://github.com/jayjcc8-cloud/repokeel/discussions/categories/ideas
     about: Discuss an idea before turning it into a scoped feature request.
   - name: Security vulnerability
-    url: https://github.com/jayjcc8-cloud/agent-project-governance/security/advisories/new
+    url: https://github.com/jayjcc8-cloud/repokeel/security/advisories/new
     about: Report exploitable vulnerabilities privately.

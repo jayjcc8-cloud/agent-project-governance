@@ -8,7 +8,7 @@
       "name": "repokeel",
       "source": {
         "source": "url",
-        "url": "https://github.com/jayjcc8-cloud/agent-project-governance.git",
+        "url": "https://github.com/jayjcc8-cloud/repokeel.git",
         "ref": "v0.5.0"
       },
       "policy": {
