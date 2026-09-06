@@ -37,7 +37,7 @@ class DeliveryToolTests(unittest.TestCase):
         packager = load_module("package_release_test", PACKAGE_RELEASE)
         validator = load_module("validate_package_archive_test", VALIDATE_PACKAGE)
         with tempfile.TemporaryDirectory() as directory:
-            archive = Path(directory) / "agent-project-governance.zip"
+            archive = Path(directory) / "repokeel.zip"
             count = packager.package(ROOT, archive)
             result = validator.validate_archive(archive, "v0.5.0")
         self.assertGreater(count, 0)
@@ -58,11 +58,11 @@ class DeliveryToolTests(unittest.TestCase):
     def test_release_archive_contains_runtime_references_and_shared_helper(self) -> None:
         packager = load_module("package_release_contents_test", PACKAGE_RELEASE)
         with tempfile.TemporaryDirectory() as directory:
-            archive = Path(directory) / "agent-project-governance.zip"
+            archive = Path(directory) / "repokeel.zip"
             packager.package(ROOT, archive)
             with zipfile.ZipFile(archive) as package:
                 names = set(package.namelist())
-        prefix = "agent-project-governance/"
+        prefix = "repokeel/"
         for relative in (
             "skills/context-governance/assets/handoff.md",
             "skills/context-governance/scripts/workspace_snapshot.py",
@@ -76,7 +76,7 @@ class DeliveryToolTests(unittest.TestCase):
         packager = load_module("package_release_bootstrap_test", PACKAGE_RELEASE)
         with tempfile.TemporaryDirectory() as directory:
             temporary = Path(directory)
-            archive = temporary / "agent-project-governance.zip"
+            archive = temporary / "repokeel.zip"
             extracted = temporary / "extracted"
             project = temporary / "external-project"
             project.mkdir()
@@ -86,7 +86,7 @@ class DeliveryToolTests(unittest.TestCase):
                 package.extractall(extracted)
             script = (
                 extracted
-                / "agent-project-governance"
+                / "repokeel"
                 / "skills"
                 / "project-bootstrap"
                 / "scripts"
@@ -136,13 +136,13 @@ class DeliveryToolTests(unittest.TestCase):
     def test_release_checksum_uses_downloadable_asset_basename(self) -> None:
         validator = load_module("validate_package_release_workflow_test", VALIDATE_PACKAGE)
         valid = (
-            'sha256sum "agent-project-governance-${GITHUB_REF_NAME}.zip" '
-            '> "agent-project-governance-${GITHUB_REF_NAME}.zip.sha256"\n--prerelease'
+            'sha256sum "repokeel-${GITHUB_REF_NAME}.zip" '
+            '> "repokeel-${GITHUB_REF_NAME}.zip.sha256"\n--prerelease'
         )
         validator._validate_release_workflow(valid)
         with self.assertRaisesRegex(validator.ValidationError, "portable asset basename"):
             validator._validate_release_workflow(
-                'sha256sum "dist/agent-project-governance-${GITHUB_REF_NAME}.zip"\n'
+                'sha256sum "dist/repokeel-${GITHUB_REF_NAME}.zip"\n'
                 '--prerelease'
             )
 
