@@ -58,8 +58,7 @@ documentation or community-maintenance PR.
 ## Clean up merged branches
 
 Delete a branch only when it has no open pull request, no active task or
-binding, and no worktree containing required work. One of these delivery checks
-must also pass:
+binding, and no required work. One of these delivery checks must also pass:
 
 - the branch head is reachable from the current `main`; or
 - squash equivalence is proven: the associated pull request is merged, its
