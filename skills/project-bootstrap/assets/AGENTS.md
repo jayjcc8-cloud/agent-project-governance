@@ -1,4 +1,4 @@
-# Agent Project Governance
+# RepoKeel
 
 - Treat Spec Kit specifications, plans, and `tasks.md` as canonical project truth.
 - Use Superpowers and the Spec Kit–Superpowers bridge for implementation discipline and handoff.

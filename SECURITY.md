@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-APG is currently a developer preview. Security fixes are applied to the latest
+RepoKeel is currently a developer preview. Security fixes are applied to the latest
 published preview and the current `main` development line. Older preview
 releases may not receive fixes.
 

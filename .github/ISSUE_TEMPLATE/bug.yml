@@ -1,16 +1,16 @@
 name: Bug report
-description: Report reproducible behavior that does not match APG's documented contract.
+description: Report reproducible behavior that does not match RepoKeel's documented contract.
 title: "bug: "
 labels:
   - bug
 body:
   - type: markdown
     attributes:
-      value: Thanks for taking the time to report a reproducible APG problem.
+      value: Thanks for taking the time to report a reproducible RepoKeel problem.
   - type: input
     id: version
     attributes:
-      label: APG version
+      label: RepoKeel version
       description: Release tag, plugin version, or commit SHA.
       placeholder: v0.4.1
     validations:

@@ -1,4 +1,4 @@
-# Agent Project Governance
+# RepoKeel
 
 - Treat the project's already accepted specifications, plans, issue tracker, and other declared task sources as authoritative; bootstrap must not create or replace project authority.
 - Store only derived runtime memory under `.agent-runtime/`; never copy task lists into runtime state.

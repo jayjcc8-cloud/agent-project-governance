@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preview, apply, and check a repository's Agent Project Governance setup."""
+"""Preview, apply, and check a repository's RepoKeel setup."""
 
 from __future__ import annotations
 
