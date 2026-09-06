@@ -360,6 +360,33 @@ class WorkUnitTests(unittest.TestCase):
             self.assertFalse(output["state_written"])
             self.assertEqual(self.state_path(root).read_bytes(), before)
 
+    def test_recovery_normalizes_pre_change_v04_checkpoint_without_writing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize(root)
+            checkpointed = self.checkpoint(root)
+            self.assertEqual(checkpointed.returncode, 0, checkpointed.stderr)
+            path = self.state_path(root)
+            legacy = json.loads(path.read_text(encoding="utf-8"))
+            legacy["checkpoint"].pop("state")
+            path.write_text(json.dumps(legacy, sort_keys=True) + "\n", encoding="utf-8")
+            before = path.read_bytes()
+
+            resumed = self.run_cli(
+                root,
+                "resume",
+                "--work-unit",
+                "feature-001",
+                "--actor",
+                "main",
+                "--strict",
+            )
+
+            self.assertEqual(resumed.returncode, 0, resumed.stderr)
+            recovery = json.loads(resumed.stdout)
+            self.assertEqual(recovery["checkpoint"]["state"], {})
+            self.assertEqual(path.read_bytes(), before)
+
     def test_handoff_checkpoint_preserves_blocker_budget_dirty_work_and_next_action(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

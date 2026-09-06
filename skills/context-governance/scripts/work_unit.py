@@ -1001,13 +1001,16 @@ def _authority_condition(statuses: list[dict[str, Any]]) -> str:
 
 
 def _base_output(state: dict[str, Any]) -> dict[str, Any]:
+    checkpoint = copy.deepcopy(state.get("checkpoint"))
+    if isinstance(checkpoint, dict):
+        checkpoint.setdefault("state", {})
     return {
         "schema_version": state.get("schema_version"),
         "work_unit_id": state.get("work_unit_id"),
         "actor_id": state.get("actor_id"),
         "parent_work_unit_id": state.get("parent_work_unit_id"),
         "status": state.get("status"),
-        "checkpoint": state.get("checkpoint"),
+        "checkpoint": checkpoint,
     }
 
 
