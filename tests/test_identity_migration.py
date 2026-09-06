@@ -160,7 +160,12 @@ class RepoKeelIdentityTests(unittest.TestCase):
             STABLE_SKILL_IDS,
         )
         self.assertTrue(all(path.is_file() for path in HISTORICAL_APG_DOCS))
-        self.assertTrue(all(path.read_text().startswith("# APG V1") for path in HISTORICAL_APG_DOCS))
+        self.assertTrue(
+            all(
+                path.read_text(encoding="utf-8").startswith("# APG V1")
+                for path in HISTORICAL_APG_DOCS
+            )
+        )
 
     def run_work_unit(
         self, project: Path, *arguments: str
