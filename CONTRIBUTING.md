@@ -62,9 +62,12 @@ binding, and no required work. One of these delivery checks must also pass:
 
 - the branch head is reachable from the current `main`; or
 - squash equivalence is proven: the associated pull request is merged, its
-  recorded head SHA equals the branch head, the pull-request head tree equals
-  the merge-commit tree, and that merge commit is reachable from current
-  `main`.
+  recorded head SHA equals the branch head, and the merge commit is reachable
+  from current `main`. In addition, either the pull-request head tree must equal
+  the merge-commit tree, or the delivered change set must be equivalent. For a
+  base that advanced before merge, compare the exact paths, modes, resulting
+  blobs, and deletions changed from `merge-base(PR_HEAD, MERGE_COMMIT^)` to
+  `PR_HEAD` with those changed from `MERGE_COMMIT^` to `MERGE_COMMIT`.
 
 `git rev-list origin/main..origin/<branch>` remains useful diagnostic evidence,
 but a nonzero count is not by itself a deletion blocker after a squash merge.
