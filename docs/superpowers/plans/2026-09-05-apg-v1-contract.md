@@ -42,7 +42,7 @@
 
 **Interfaces:**
 - Consumes: the V1 acceptance rule and approved APG and knowledge fields.
-- Produces: one reusable record for Task A, Task B, and Task C plus a final retain/remove/automate decision review.
+- Produces: one reusable record for Task A, Task B, and Task C plus a final evidence review that leaves every follow-on product decision separately authorized.
 
 - [x] **Step 1:** Add per-task fields for continuity, product result, concrete APG impact, overhead, avoided rework, and separate knowledge reuse evidence.
 - [x] **Step 2:** Encode that `APG_ACCEPTANCE=PASS` requires a concrete continuity/context problem solved or avoided and no product-development blockage.
