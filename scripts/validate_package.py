@@ -17,7 +17,10 @@ from pathlib import Path
 from typing import Any, Optional
 
 
-PLUGIN_NAME = "agent-project-governance"
+PLUGIN_NAME = "repokeel"
+RELEASE_PREFIX = "repokeel"
+LEGACY_SCHEMA_PREFIX = "agent-project-governance"
+WORKSPACE_SCHEMA = f"{LEGACY_SCHEMA_PREFIX}.workspace-snapshot.v1"
 VERSION_RE = re.compile(r"^0\.[0-9]+\.[0-9]+(?:\+codex\.[A-Za-z0-9.-]+)?$")
 HOOK_COMMAND = (
     "sh -c 'adapter=\"$PLUGIN_ROOT/skills/context-governance/scripts/hook_adapter.py\"; "
@@ -52,7 +55,7 @@ def _validate_release_workflow(release_workflow: str) -> None:
         raise ValidationError("developer-preview releases must be marked as prereleases")
     if 'sha256sum "dist/' in release_workflow:
         raise ValidationError("release checksum must contain a portable asset basename")
-    if 'sha256sum "agent-project-governance-${GITHUB_REF_NAME}.zip"' not in release_workflow:
+    if f'sha256sum "{RELEASE_PREFIX}-${{GITHUB_REF_NAME}}.zip"' not in release_workflow:
         raise ValidationError("release workflow must checksum the downloadable asset basename")
 
 
@@ -221,7 +224,7 @@ def _exercise_workspace_helper(root: Path) -> int:
             raise ValidationError("packaged workspace helper returned invalid JSON") from exc
         if (
             not isinstance(result, dict)
-            or result.get("schema") != "agent-project-governance.workspace-snapshot.v1"
+            or result.get("schema") != WORKSPACE_SCHEMA
             or result.get("observation_only") is not True
             or result.get("network_accessed") is not False
             or (repository / ".agent-runtime").exists()

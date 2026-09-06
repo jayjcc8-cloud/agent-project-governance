@@ -1,11 +1,11 @@
 {
-  "name": "agent-project-governance",
+  "name": "repokeel",
   "interface": {
-    "displayName": "Agent Project Governance"
+    "displayName": "RepoKeel"
   },
   "plugins": [
     {
-      "name": "agent-project-governance",
+      "name": "repokeel",
       "source": {
         "source": "url",
         "url": "https://github.com/jayjcc8-cloud/agent-project-governance.git",
