@@ -1,19 +1,20 @@
 # Documentation
 
-This index separates the public starting path from APG's detailed contracts and
-historical evidence.
+This index separates RepoKeel's public starting path from the frozen APG
+contracts and historical evidence that predate the product rename.
 
 ## Getting started
 
 - [Repository Quick Start](../README.md#quick-start)
-- [Contributing to APG](../CONTRIBUTING.md)
+- [Contributing to RepoKeel](../CONTRIBUTING.md)
+- [Migrating from APG](migrating-from-apg.md)
 - [`project-bootstrap` workflow](../skills/project-bootstrap/SKILL.md)
 - [`context-governance` workflow](../skills/context-governance/SKILL.md)
 
 ## Core contract
 
-- [APG V1 core contract](apg-v1-contract.md) defines the product role,
-  capabilities, authority boundary, and non-goals.
+- [APG V1 core contract](apg-v1-contract.md) is the frozen pre-rename contract
+  against which RepoKeel is currently evaluated.
 - [APG V1 three-real-task value evaluation](apg-v1-three-task-value-evaluation.md)
   defines the evidence required before V1 acceptance.
 

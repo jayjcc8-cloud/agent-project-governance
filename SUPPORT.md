@@ -10,6 +10,6 @@ Choose the channel that matches your request:
 | Early idea | [Start an Ideas discussion](https://github.com/jayjcc8-cloud/agent-project-governance/discussions/categories/ideas) |
 | Security vulnerability | Follow [SECURITY.md](SECURITY.md) |
 
-APG is maintained as an open-source developer preview. Support is best effort;
+RepoKeel is maintained as an open-source developer preview. Support is best effort;
 please include enough environment and reproduction detail for someone else to
 verify the report.

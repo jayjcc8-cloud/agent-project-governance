@@ -1,33 +1,33 @@
 {
-  "name": "agent-project-governance",
+  "name": "repokeel",
   "version": "0.5.0",
-  "description": "Support task continuity, source realignment, worktree boundaries, and recovery without replacing project authorities",
+  "description": "Persistent project state for AI coding agents",
   "author": {
-    "name": "Agent Project Governance contributors"
+    "name": "RepoKeel contributors"
   },
   "homepage": "https://github.com/jayjcc8-cloud/agent-project-governance",
   "repository": "https://github.com/jayjcc8-cloud/agent-project-governance",
   "license": "MIT",
   "keywords": [
     "ai-agents",
-    "context",
+    "project-state",
     "checkpoint",
     "resume",
     "work-units"
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "Agent Project Governance",
-    "shortDescription": "Continue real development tasks without replacing project authorities.",
-    "longDescription": "A developer-preview continuity layer for context recovery, task-source realignment, and worktree-boundary evidence. Existing bootstrap, delivery, closeout, and hook entry points remain auxiliary and reuse project authorities rather than creating another plan or orchestration system.",
-    "developerName": "Agent Project Governance contributors",
+    "displayName": "RepoKeel",
+    "shortDescription": "Keep coding agents grounded in the real state of ongoing engineering work.",
+    "longDescription": "Persistent project state for safe continuation across coding-agent sessions, with task-source realignment, Git and worktree evidence, bounded recovery, and explicit next actions. Existing bootstrap, delivery, closeout, and hook entry points remain auxiliary and reuse project authorities rather than creating another plan or orchestration system.",
+    "developerName": "RepoKeel contributors",
     "category": "Productivity",
     "capabilities": [
       "Interactive",
       "Write"
     ],
     "defaultPrompt": [
-      "Inspect this project and preview its governance setup.",
+      "Inspect this project and preview its RepoKeel setup.",
       "Resume this work unit and recommend the next safe action.",
       "Refresh this task's workspace evidence before writing.",
       "Verify the current candidate before merge or cleanup."

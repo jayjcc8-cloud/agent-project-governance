@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose a focused improvement within APG's continuity boundary.
+description: Propose a focused improvement within RepoKeel's continuity boundary.
 title: "enhancement: "
 labels:
   - enhancement
@@ -14,8 +14,8 @@ body:
   - type: textarea
     id: why_apg
     attributes:
-      label: Why should APG solve it?
-      description: Explain why this belongs in APG instead of GitHub, Git, CI, an IDE, or a project-management tool.
+      label: Why should RepoKeel solve it?
+      description: Explain why this belongs in RepoKeel instead of GitHub, Git, CI, an IDE, or a project-management tool.
     validations:
       required: true
   - type: dropdown
@@ -48,5 +48,5 @@ body:
     attributes:
       label: Scope check
       options:
-        - label: This request does not ask APG to become a project manager, IDE, or agent orchestrator.
+        - label: This request does not ask RepoKeel to become a project manager, IDE, or agent orchestrator.
           required: true

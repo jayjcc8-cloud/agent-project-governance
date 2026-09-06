@@ -1,6 +1,6 @@
-# Contributing to Agent Project Governance
+# Contributing to RepoKeel
 
-Thanks for helping improve APG. Contributions should make long-running agent
+Thanks for helping improve RepoKeel. Contributions should make long-running agent
 work easier to understand, resume, or verify without creating a second source
 of project truth.
 
@@ -30,7 +30,7 @@ Use a branch name that describes the change:
 - `chore/<description>`
 - `test/<description>`
 
-APG has no runtime dependency installation step. Development validation uses
+RepoKeel has no runtime dependency installation step. Development validation uses
 Python 3.9 or newer.
 
 ## Run validation
@@ -80,7 +80,7 @@ missing or contradictory, preserve the branch and investigate it separately.
 
 ## Changes that will not be accepted
 
-APG is not a project manager, orchestration engine, IDE, or replacement for
+RepoKeel is not a project manager, orchestration engine, IDE, or replacement for
 GitHub, Git, specifications, review, or CI. Changes that create a parallel task
 database, hidden authority, automatic approval, or a second governance engine
 are outside the current product boundary.

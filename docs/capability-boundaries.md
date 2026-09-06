@@ -1,8 +1,15 @@
 # Capability boundaries and production posture
 
-Agent Project Governance is a local, advisory execution-continuity and context-support layer. It helps an agent continue a real development task, realign to a changed declared task source, preserve worktree boundaries, and recover bounded context. It is not a project fact source, technical approver, drift detector, knowledge-governance system, planning system, or autonomous orchestrator.
+RepoKeel provides persistent project state for AI coding agents. It helps an
+agent continue a real development task, realign to a changed declared task
+source, preserve Git and worktree evidence, and recover bounded context. It is
+not a project fact source, technical approver, drift detector,
+knowledge-governance system, planning system, or autonomous orchestrator.
 
-The normative product boundary is the [APG V1 core contract](apg-v1-contract.md). Existing 0.5 workflow entry points and historic experiments remain available, but auxiliary mechanism breadth is not the V1 product definition.
+The current product is evaluated against the frozen
+[APG V1 core contract](apg-v1-contract.md) established before the RepoKeel
+rename. Existing 0.5 workflow entry points and historic experiments remain
+available, but auxiliary mechanism breadth is not the V1 product definition.
 
 ## What it can do
 
@@ -38,7 +45,8 @@ These mechanisms support four V1 outcomes: context/task continuity, task-source 
 
 ## Production posture
 
-Current status: **unreleased 0.5 developer-preview candidate; shadow/advisory production pilot only**.
+Current status: **RepoKeel unreleased 0.5 developer-preview candidate;
+shadow/advisory production pilot only**.
 
 Safe current use:
 
@@ -60,4 +68,11 @@ Repeatable binding resolution, the predeclared original-baseline recovery thresh
 
 The current status is `APG_V1_ACCEPTANCE=PENDING_THREE_REAL_PRODUCT_TASKS`. V1 evidence is collected on three real product tasks with [the value evaluation template](apg-v1-three-task-value-evaluation.md). A per-task pass requires one concrete continuity/context problem solved or avoided and no product-development blockage; it does not promote the global status. ADG or drift governance is not part of the evaluation. Promotion to blocking control or autonomous continuation is outside the V1 contract rather than a presumed next maturity step.
 
-For local plugin iteration, wait until every task using the installed plugin has ended before running `codex plugin add`. Do not rely on cachebuster SemVer alone to retain old directories, and never run `codex plugin remove` while a task may reference an installed path. The package validator exercises both the installed adapter path and a simulated missing old path, but only the Codex host can determine when every active task has released a cache reference.
+For local plugin iteration, wait until every task using the installed plugin has
+ended before running `codex plugin add`. Do not rely on cachebuster SemVer alone
+to retain old directories, and never run `codex plugin remove` while a task may
+reference an installed path. Existing APG installations require the explicit
+[migration procedure](migrating-from-apg.md); only project state, not plugin
+installation identity, remains compatible. The package validator exercises
+both the installed adapter path and a simulated missing old path, but only the
+Codex host can determine when every active task has released a cache reference.

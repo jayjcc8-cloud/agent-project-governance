@@ -2,7 +2,7 @@
 
 ## Our pledge
 
-We pledge to make participation in Agent Project Governance a harassment-free
+We pledge to make participation in RepoKeel a harassment-free
 experience for everyone, regardless of age, body size, disability, ethnicity,
 sex characteristics, gender identity and expression, experience level,
 education, socioeconomic status, nationality, personal appearance, race,
