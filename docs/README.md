@@ -1,7 +1,6 @@
 # Documentation
 
-This index separates RepoKeel's public starting path from the frozen APG
-contracts and historical evidence that predate the product rename.
+This index links the current RepoKeel contract and preserved historical APG evidence.
 
 ## Getting started
 
@@ -13,10 +12,10 @@ contracts and historical evidence that predate the product rename.
 
 ## Core contract
 
-- [APG V1 core contract](apg-v1-contract.md) is the frozen pre-rename contract
-  against which RepoKeel is currently evaluated.
+- [RepoKeel V1 core contract](apg-v1-contract.md) defines retrieval, conditional
+  learning, and exceptional recovery after the completed SHRINK decision.
 - [APG V1 three-real-task value evaluation](apg-v1-three-task-value-evaluation.md)
-  defines the evidence required before V1 acceptance.
+  is preserved historical pilot guidance, not a recurring task requirement.
 
 ## Capability boundaries
 

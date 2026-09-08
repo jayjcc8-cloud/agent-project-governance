@@ -1,15 +1,11 @@
 # Capability boundaries and production posture
 
-RepoKeel provides persistent project state for AI coding agents. It helps an
-agent continue a real development task, realign to a changed declared task
-source, preserve Git and worktree evidence, and recover bounded context. It is
-not a project fact source, technical approver, drift detector,
-knowledge-governance system, planning system, or autonomous orchestrator.
-
-The current product is evaluated against the frozen
-[APG V1 core contract](apg-v1-contract.md) established before the RepoKeel
-rename. Existing 0.5 workflow entry points and historic experiments remain
-available, but auxiliary mechanism breadth is not the V1 product definition.
+RepoKeel owns reusable development knowledge only: Retrieve, Learn, Update,
+and exceptional Recover. The [current V1 contract](apg-v1-contract.md) defines
+one retrieval at task start and conditional learning after acceptance. Ordinary
+tasks require no runtime state, binding, checkpoint, evaluation, or close report.
+The existing CLI mechanisms below are explicit compatibility/recovery tools,
+not a required task lifecycle or additional project authority.
 
 ## What it can do
 
@@ -29,9 +25,9 @@ available, but auxiliary mechanism breadth is not the V1 product definition.
   explicit recovery still returns the complete current snapshot.
 - Return deterministic, evidence-linked advisory actions such as `RECONCILE`, `CLOSE`, `CHECKPOINT`, `WORKTREE`, or `CONTINUE` without executing them.
 - Bind an explicit session/agent pair to one actor/work unit and keep main-task and subagent keys isolated.
-- Provide read-only advisory hook context at session start, before compaction, and at stop events. Hooks always allow the host action to continue.
+- Provide optional read-only hook context on actual resume/context loss or compaction of already-bound work. Normal startup, subagent lifecycle, and stop do not invoke recovery. Hooks always allow the host action to continue.
 
-These mechanisms support four V1 outcomes: context/task continuity, task-source realignment, worktree boundaries, and recovery/budget continuity. Bootstrap, delivery, closeout, hook transport, timing measurements, and injected change matrices are auxiliary support or historical evidence.
+Historical mechanism breadth does not add duties to the four V1 responsibilities.
 
 ## What it cannot do
 
@@ -73,7 +69,10 @@ Do not yet use the plugin as:
 
 Repeatable binding resolution, the predeclared original-baseline recovery threshold, the injected authority-change matrix, and the pinned Spec Kit/Superpowers/bridge handoff smoke passed on 2026-08-20. These results support a limited human-reviewed advisory pilot and remain historical mechanism evidence. They do not establish APG V1 product value.
 
-The current status is `APG_V1_ACCEPTANCE=PENDING_THREE_REAL_PRODUCT_TASKS`. V1 evidence is collected on three real product tasks with [the value evaluation template](apg-v1-three-task-value-evaluation.md). A per-task pass requires one concrete continuity/context problem solved or avoided and no product-development blockage; it does not promote the global status. ADG or drift governance is not part of the evaluation. Promotion to blocking control or autonomous continuation is outside the V1 contract rather than a presumed next maturity step.
+The three EA tasks are complete; [EA #176](https://github.com/jayjcc8-cloud/ea-quant/issues/176#issuecomment-5578482298)
+records SHRINK. Retrieval and cross-task reuse were demonstrated; exact overhead
+and interruption benefits remain limited/unknown. The old evaluation template is
+historical, not a new acceptance gate or routine output requirement.
 
 For local plugin iteration, wait until every task using the installed plugin has
 ended before running `codex plugin add`. Do not rely on cachebuster SemVer alone

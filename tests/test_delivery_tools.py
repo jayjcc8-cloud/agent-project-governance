@@ -42,7 +42,7 @@ class DeliveryToolTests(unittest.TestCase):
             result = validator.validate_archive(archive, "v0.5.0")
         self.assertGreater(count, 0)
         self.assertTrue(result["archive_valid"], result)
-        self.assertEqual(result["hook_commands_checked"], 5)
+        self.assertEqual(result["hook_commands_checked"], 2)
         self.assertEqual(result["workspace_runs"], 1)
         self.assertEqual(
             result["skills"],
@@ -71,6 +71,54 @@ class DeliveryToolTests(unittest.TestCase):
             "skills/eng-bounded-delivery/references/domain-patterns.md",
         ):
             self.assertIn(prefix + relative, names)
+
+    def test_extracted_normal_task_then_exceptional_handoff(self) -> None:
+        packager = load_module("package_shrink_flow", PACKAGE_RELEASE)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            archive = root / "repokeel.zip"
+            packager.package(ROOT, archive)
+            with zipfile.ZipFile(archive) as package:
+                package.extractall(root / "extracted")
+            scripts = root / "extracted/repokeel/skills/context-governance/scripts"
+            project = root / "project"
+            project.mkdir()
+            (project / "task.md").write_text("Current explicit task authority.\n")
+
+            def hook(event: str, source: str) -> dict[str, object]:
+                result = subprocess.run(
+                    [sys.executable, str(scripts / "hook_adapter.py")],
+                    input=json.dumps({"hook_event_name": event, "source": source,
+                                      "cwd": str(project), "session_id": "flow"}),
+                    capture_output=True, text=True, check=True, cwd=project,
+                )
+                return json.loads(result.stdout)
+
+            self.assertEqual(hook("SessionStart", "startup"), {"continue": True})
+            self.assertEqual(hook("Stop", ""), {"continue": True})
+            self.assertFalse((project / ".agent-runtime").exists())
+            # Only the actual handoff creates derived recovery context.
+            def cli(*args: str) -> dict[str, object]:
+                result = subprocess.run(
+                    [sys.executable, str(scripts / "work_unit.py"), *args,
+                     "--project-root", str(project)],
+                    capture_output=True, text=True, check=True, cwd=project,
+                )
+                return json.loads(result.stdout)
+
+            identity = ("--work-unit", "handoff", "--actor", "main")
+            cli("init", *identity, "--authority", "task", "task.md")
+            cli("checkpoint", *identity, "--event", "SESSION_HANDOFF",
+                "--summary", "Known contract reused; verification remains.",
+                "--next-action", "Verify the product.")
+            cli("bind", *identity, "--session", "flow")
+            state = project / ".agent-runtime/work-units/handoff/state.json"
+            before = state.read_bytes()
+            recovered = hook("SessionStart", "resume")
+            self.assertIn("Known contract reused", str(recovered))
+            resumed = cli("resume", *identity, "--strict")
+            self.assertIn("Verify the product", str(resumed))
+            self.assertEqual(state.read_bytes(), before)
 
     def test_extracted_package_default_bootstrap_is_framework_neutral(self) -> None:
         packager = load_module("package_release_bootstrap_test", PACKAGE_RELEASE)

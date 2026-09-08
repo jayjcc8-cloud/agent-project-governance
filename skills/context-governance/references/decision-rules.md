@@ -1,6 +1,9 @@
 # Deterministic Decision Rules
 
-`evaluate` emits ordered advisory actions without a numeric health score.
+`evaluate` retains these explicit compatibility outputs without a numeric health
+score. They are not normal-task requirements. Under the current V1 contract,
+invoke this CLI only to diagnose actual recovery; old promotion, close, and
+lifecycle recommendations do not authorize writes or create project obligations.
 
 | Priority | Evidence | Action |
 |---:|---|---|

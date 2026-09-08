@@ -8,6 +8,10 @@ description: Explicitly implement or review one authorized software increment wi
 Use the project's current Issue, specification, tests, CI, and engineering tools.
 Do not create another task plan, review state machine, dispatcher, or ledger.
 
+This explicit compatibility helper is not part of the normal RepoKeel loop.
+Project-owned delivery and review rules take precedence; the guidance below adds
+no mandatory review or duplicated record to a task.
+
 ## Delivery
 
 1. Restate one acceptance goal, scope, non-goals, current writer, and stopping

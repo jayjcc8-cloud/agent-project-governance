@@ -1,7 +1,7 @@
 {
   "name": "repokeel",
   "version": "0.5.0",
-  "description": "Persistent project state for AI coding agents",
+  "description": "Reusable development knowledge and exceptional context recovery",
   "author": {
     "name": "RepoKeel contributors"
   },
@@ -10,16 +10,16 @@
   "license": "MIT",
   "keywords": [
     "ai-agents",
-    "project-state",
-    "checkpoint",
-    "resume",
-    "work-units"
+    "knowledge-reuse",
+    "retrieval",
+    "learning",
+    "recovery"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "RepoKeel",
-    "shortDescription": "Keep coding agents grounded in the real state of ongoing engineering work.",
-    "longDescription": "Persistent project state for safe continuation across coding-agent sessions, with task-source realignment, Git and worktree evidence, bounded recovery, and explicit next actions. Existing bootstrap, delivery, closeout, and hook entry points remain auxiliary and reuse project authorities rather than creating another plan or orchestration system.",
+    "shortDescription": "Retrieve relevant knowledge, learn conditionally, recover only after interruption.",
+    "longDescription": "Retrieve once at real task start, execute under project authority, and write knowledge only when new or outdated after acceptance. Existing recovery readers remain available for actual context loss or handoff; no routine work-unit lifecycle is required.",
     "developerName": "RepoKeel contributors",
     "category": "Productivity",
     "capabilities": [
@@ -27,10 +27,9 @@
       "Write"
     ],
     "defaultPrompt": [
-      "Inspect this project and preview its RepoKeel setup.",
-      "Resume this work unit and recommend the next safe action.",
-      "Refresh this task's workspace evidence before writing.",
-      "Verify the current candidate before merge or cleanup."
+      "Find knowledge directly relevant to this task; continue if none exists.",
+      "The task is accepted. Save knowledge only if it is new or needs updating.",
+      "Recover this interrupted task from existing context and project authorities."
     ]
   }
 }

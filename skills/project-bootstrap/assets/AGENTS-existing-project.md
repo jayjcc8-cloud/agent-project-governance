@@ -1,7 +1,7 @@
 # RepoKeel
 
 - Treat the project's already accepted specifications, plans, issue tracker, and other declared task sources as authoritative; bootstrap must not create or replace project authority.
-- Store only derived runtime memory under `.agent-runtime/`; never copy task lists into runtime state.
-- Give every main agent, subagent, and reviewer a distinct actor-owned work unit.
-- Checkpoint before context compaction or handoff, and reconcile changed authority files before resuming.
-- Promote durable architecture decisions and agent rules only through the project's existing conventions.
+- At a real task start, search once for directly relevant reusable knowledge. Report `RETRIEVAL_USED=YES|NO` and `REUSED_KNOWLEDGE=<references or NONE>`; no hit does not block work.
+- After task acceptance, write knowledge only when `NEW_KNOWLEDGE=YES` or `UPDATE_NEEDED=YES`; otherwise `KNOWLEDGE_WRITE=SKIPPED`. Do not create routine summaries or duplicate Issue/PR/Git/CI evidence.
+- Recovery is only for real context loss, interruption, handoff, or long-running task resume. Normal tasks need no work unit, binding, checkpoint, or close record. Existing recovery records remain readable.
+- Promote knowledge only after actual reuse and through existing project conventions. RepoKeel owns reusable knowledge, not requirements, task lifecycle, risk approval, release, CI, or acceptance.

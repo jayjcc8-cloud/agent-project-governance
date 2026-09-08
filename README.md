@@ -1,33 +1,27 @@
 # RepoKeel
 
-Persistent project state for AI coding agents.
+Reusable development knowledge for AI coding agents.
 
-> Preserve the state of the work, not the state of the conversation.
+> Retrieve once. Learn when needed. Recover only after interruption.
 
 [![CI](https://github.com/jayjcc8-cloud/repokeel/actions/workflows/ci.yml/badge.svg)](https://github.com/jayjcc8-cloud/repokeel/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/jayjcc8-cloud/repokeel?include_prereleases&label=latest%20preview)](https://github.com/jayjcc8-cloud/repokeel/releases/tag/v0.4.1)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-AI coding sessions are temporary. Your project's state is not.
+RepoKeel's normal loop is `RETRIEVE -> EXECUTE -> CONDITIONAL_LEARN`.
+Search once for knowledge directly relevant to the real task. Execute using the
+project's existing tools and authorities. After acceptance, save or update only
+new or outdated reusable knowledge; otherwise stop without a knowledge write.
 
-RepoKeel keeps coding agents grounded in the real state of ongoing engineering
-work: tasks, repository state, worktree boundaries, authority changes,
-evidence, and the next safe action. Work resumes from project facts instead of
-reconstructed chat history.
+Recovery is optional and event-driven for actual context loss, interruption,
+handoff, or long-running task resume. Normal tasks need no work unit, binding,
+checkpoint, or close record. Existing recovery state and CLI readers remain usable.
 
-## What RepoKeel does
-
-- Checkpoints and resumes actor-owned work units.
-- Realigns local work with authoritative task sources such as GitHub Issues,
-  pull requests, and repository files.
-- Inspects Git and worktree boundaries before an agent writes or closes work.
-- Recommends a safe next action when context, authority, or budget changes.
-- Bootstraps missing project files without overwriting existing policy.
-
-RepoKeel ships as a skills-only Codex plugin. Its hooks are advisory and fail
-open; GitHub, Git, accepted specifications, Issues, PRs, and CI remain
-authoritative.
+GitHub Issues or explicit user tasks own requirements; Git owns code; PR/main own
+delivery; CI and explicit acceptance evidence own verification. RepoKeel owns
+reusable knowledge only. It ships as a skills-only Codex plugin, with fail-open
+recovery hooks and no second task lifecycle or acceptance authority.
 
 ## Quick Start
 
@@ -51,21 +45,14 @@ The unreleased marketplace entry intentionally pins `v0.5.0`, so these
 commands will resolve only after that tag is published; RepoKeel is not
 advertised as an installable `main` snapshot.
 
-After installing a published RepoKeel release, open a Git repository in Codex
-and ask:
+In a source-enabled session, ask RepoKeel to search for knowledge relevant to the
+current task. At acceptance, check for new or outdated knowledge and skip writing
+when neither exists. Use the project's authorized knowledge route; no new knowledge
+store or plugin installation is required by the loop.
 
-> Inspect this project with RepoKeel and preview its setup. Do not change
-> existing files.
-
-Review the preview. If you want RepoKeel to add only missing project files,
-ask:
-
-> Apply the RepoKeel project bootstrap to this repository, then run its health
-> check.
-
-RepoKeel never installs optional dependencies and never overwrites an existing
-policy file. For direct source usage and contributor setup, see
-[Contributing](CONTRIBUTING.md).
+Existing bootstrap remains an explicit compatibility helper, not a task-start
+requirement. It never installs dependencies or overwrites project policy. For
+source usage and contributor setup, see [Contributing](CONTRIBUTING.md).
 
 The latest published preview is the legacy APG `v0.4.1` release. Existing APG
 installations do not automatically become RepoKeel installations; see
@@ -74,33 +61,24 @@ installations do not automatically become RepoKeel installations; see
 ## How it works
 
 ```text
-Task authority
-      |
-      v
-  RepoKeel
-  +---+---+
-  |   |   |
- Git  |  Context
-    Worktree
-      |
-      v
-Safe continuation
+Real task -> relevant knowledge search -> product work -> accepted
+                                                    -> new/update knowledge?
+                                                       no: stop / yes: write
+Actual interruption only -> recover
 ```
 
-The current development branch contains five stable workflow IDs:
+The five existing skill IDs remain compatible, not a mandatory chain:
 
 | Workflow | Purpose |
 |---|---|
-| `project-bootstrap` | Preview or add missing local project assets. |
-| `context-governance` | Checkpoint, resume, bind, realign, and close work units. |
-| `eng-task-start` | Refresh task, Git, worktree, and authorization facts. |
-| `eng-bounded-delivery` | Keep implementation and review inside the task contract. |
-| `eng-verified-closeout` | Verify the candidate, CI, merge, and cleanup separately. |
+| `eng-task-start` | One bounded knowledge retrieval at task start. |
+| `eng-verified-closeout` | Conditional learning after acceptance. |
+| `context-governance` | Exceptional recovery using existing records. |
+| `project-bootstrap` | Explicit compatibility setup helper. |
+| `eng-bounded-delivery` | Optional guidance subordinate to project delivery rules. |
 
-These workflow IDs remain stable across the product rename and are not a
-mandatory chain. RepoKeel is currently evaluated against the
-[frozen APG V1 core contract](docs/apg-v1-contract.md) established before the
-rename.
+See the [current V1 contract](docs/apg-v1-contract.md). The three EA pilot tasks
+are complete; their SHRINK decision removes routine recovery and duplicate records.
 
 ## Current status
 
@@ -109,7 +87,7 @@ rename.
 | Current product | RepoKeel |
 | Current candidate | `v0.5.0`, not released |
 | Latest published legacy preview | APG `v0.4.1` |
-| V1 acceptance | Pending against the frozen APG V1 contract |
+| V1 scope | SHRINK: retrieval, conditional learning, exceptional recovery |
 | Core Python support | Python 3.9+ on macOS, Linux, and Windows |
 | Advisory hooks | Supported on macOS and Linux; Windows remains experimental |
 
@@ -117,9 +95,8 @@ CI compiles the Python entry points, runs the full unit suite, and validates
 the package on Ubuntu, macOS, and Windows with Python 3.9 and 3.13.
 
 See [Capability boundaries](docs/capability-boundaries.md) for the supported
-and unsupported matrix. A green mechanism test does not by itself satisfy the
-historical APG V1 acceptance gate; three real product tasks must demonstrate
-concrete continuity value.
+and unsupported matrix. The completed pilot decision is recorded in EA #176; it is not a recurring
+per-task evaluation requirement.
 
 ## Who should use RepoKeel?
 
@@ -137,7 +114,7 @@ rewrite project policy or stored project state.
 ## Documentation
 
 Start with the [documentation index](docs/README.md), then use the
-[historical APG V1 contract](docs/apg-v1-contract.md),
+[current V1 contract](docs/apg-v1-contract.md),
 [migration guide](docs/migrating-from-apg.md), and
 [capability boundaries](docs/capability-boundaries.md) for precise semantics.
 

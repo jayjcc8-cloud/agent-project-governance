@@ -1,6 +1,6 @@
 interface:
-  display_name: "Verified Engineering Closeout"
-  short_description: "Verify candidate evidence before merge or cleanup"
-  default_prompt: "Use $eng-verified-closeout to verify this candidate and report only current evidence."
+  display_name: "Conditional Task Learning"
+  short_description: "Learn only after acceptance when needed"
+  default_prompt: "Use $eng-verified-closeout after task acceptance; skip writing unless knowledge is new or needs updating."
 policy:
   allow_implicit_invocation: false

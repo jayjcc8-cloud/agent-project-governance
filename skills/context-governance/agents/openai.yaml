@@ -1,4 +1,4 @@
 interface:
-  display_name: "Context Governance"
-  short_description: "Checkpoint and advise isolated AI work units"
-  default_prompt: "Use $context-governance to resume this work unit, verify its authorities, and recommend the next safe action."
+  display_name: "Exceptional Context Recovery"
+  short_description: "Recover only interrupted task context"
+  default_prompt: "Use $context-governance only for this real interruption or handoff; reuse existing recovery state if needed."

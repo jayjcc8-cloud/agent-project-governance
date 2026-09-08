@@ -39,7 +39,7 @@ class HookTests(unittest.TestCase):
     def run_hook_command(
         self, plugin_root: Path, payload: dict[str, object]
     ) -> subprocess.CompletedProcess[str]:
-        command = json.loads(HOOKS_JSON.read_text(encoding="utf-8"))["hooks"]["Stop"][0][
+        command = json.loads(HOOKS_JSON.read_text(encoding="utf-8"))["hooks"]["SessionStart"][0][
             "hooks"
         ][0]["command"]
         environment = os.environ.copy()
@@ -102,55 +102,63 @@ class HookTests(unittest.TestCase):
             "model": "test",
         }
 
-    def test_unbound_session_start_supplies_id_without_state(self) -> None:
+    def test_normal_lifecycle_is_silent_without_runtime_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            result = self.run_hook(self.base_payload(Path(directory), "SessionStart"))
-            self.assertEqual(result.returncode, 0, result.stderr)
-            output = json.loads(result.stdout)
-            context = output["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("session-main", context)
-            self.assertIn("No work unit is bound", context)
-            self.assertNotIn("decision", output)
+            root = Path(directory)
+            for event in ("SessionStart", "SubagentStart", "SubagentStop", "Stop"):
+                payload = self.base_payload(root, event)
+                payload["source"] = "startup"
+                result = self.run_hook(payload)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout), {"continue": True})
+            self.assertFalse((root / ".agent-runtime").exists())
 
-    def test_bound_session_start_reads_only_its_checkpoint(self) -> None:
+    def test_bound_normal_start_and_stop_do_not_read_or_prompt_recovery(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self.initialize_bound_unit(root)
-            before = (root / ".agent-runtime" / "work-units" / "feature-001" / "state.json").read_bytes()
-            result = self.run_hook(self.base_payload(root, "SessionStart"))
-            self.assertEqual(result.returncode, 0, result.stderr)
-            context = json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("feature-001", context)
-            self.assertIn("Bound checkpoint", context)
-            after = (root / ".agent-runtime" / "work-units" / "feature-001" / "state.json").read_bytes()
+            before = {str(p): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+            for event in ("SessionStart", "Stop", "SubagentStart", "SubagentStop"):
+                payload = self.base_payload(root, event)
+                payload["source"] = "startup"
+                result = self.run_hook(payload)
+                self.assertEqual(json.loads(result.stdout), {"continue": True})
+            after = {str(p): p.read_bytes() for p in root.rglob("*") if p.is_file()}
             self.assertEqual(after, before)
 
-    def test_subagent_never_inherits_main_binding(self) -> None:
+    def test_unbound_recovery_does_not_require_creating_a_work_unit(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            self.initialize_bound_unit(root)
-            payload = self.base_payload(root, "SubagentStart")
-            payload.update({"agent_id": "agent-1", "agent_type": "worker"})
-            started = self.run_hook(payload)
-            context = json.loads(started.stdout)["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("distinct work unit", context)
-            self.assertNotIn("Bound checkpoint", context)
-            payload["hook_event_name"] = "SubagentStop"
-            stopped = self.run_hook(payload)
-            message = json.loads(stopped.stdout)["systemMessage"]
-            self.assertIn("No session-bound work unit", message)
+            for event in ("SessionStart", "PreCompact"):
+                payload = self.base_payload(root, event)
+                payload["source"] = "resume"
+                result = self.run_hook(payload)
+                self.assertEqual(json.loads(result.stdout), {"continue": True})
+            self.assertFalse((root / ".agent-runtime").exists())
 
-    def test_precompact_and_stop_are_advisory(self) -> None:
+    def test_actual_resume_reads_existing_checkpoint_without_writing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self.initialize_bound_unit(root)
-            for event in ("PreCompact", "Stop"):
-                result = self.run_hook(self.base_payload(root, event))
+            state = root / ".agent-runtime/work-units/feature-001/state.json"
+            before = state.read_bytes()
+            for source in ("resume", "clear", "compact"):
+                payload = self.base_payload(root, "SessionStart")
+                payload["source"] = source
+                result = self.run_hook(payload)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                output = json.loads(result.stdout)
-                self.assertTrue(output["continue"])
-                self.assertNotIn("decision", output)
-                self.assertIn("feature-001", output["systemMessage"])
+                context = json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
+                self.assertIn("Bound checkpoint", context)
+            self.assertEqual(state.read_bytes(), before)
+
+    def test_precompact_of_bound_work_is_advisory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.initialize_bound_unit(root)
+            result = self.run_hook(self.base_payload(root, "PreCompact"))
+            output = json.loads(result.stdout)
+            self.assertTrue(output["continue"])
+            self.assertIn("feature-001", output["systemMessage"])
 
     def test_invalid_input_never_blocks(self) -> None:
         result = self.run_hook("not-json")
@@ -167,7 +175,7 @@ class HookTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             output = json.loads(result.stdout)
             self.assertTrue(output["continue"])
-            self.assertIn("No session-bound work unit", output["systemMessage"])
+            self.assertEqual(output, {"continue": True})
 
     @unittest.skipIf(shutil.which("sh") is None, "POSIX hook launcher is not supported")
     def test_hook_launcher_fails_open_after_plugin_directory_is_removed(self) -> None:
@@ -188,8 +196,9 @@ class HookTests(unittest.TestCase):
         config = json.loads(HOOKS_JSON.read_text(encoding="utf-8"))
         self.assertEqual(
             set(config["hooks"]),
-            {"SessionStart", "PreCompact", "SubagentStart", "SubagentStop", "Stop"},
+            {"SessionStart", "PreCompact"},
         )
+        self.assertEqual(config["hooks"]["SessionStart"][0]["matcher"], "resume|clear|compact")
         for groups in config["hooks"].values():
             for group in groups:
                 for hook in group["hooks"]:
