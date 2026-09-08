@@ -89,55 +89,30 @@ def _main(payload: dict[str, Any]) -> dict[str, Any]:
             "continue": True,
             "systemMessage": "Context governance received incomplete hook input; no state was read.",
         }
+    # A normal task never reads recovery state or asks for lifecycle records.
+    if event != "PreCompact" and not (
+        event == "SessionStart" and payload.get("source") in ("resume", "clear", "compact")
+    ):
+        return {"continue": True}
     root = Path(cwd).expanduser().resolve()
     if not root.is_dir():
         return {"continue": True}
-
-    if event == "SubagentStart":
-        agent_id = payload.get("agent_id")
-        actor_hint = f"subagent-{agent_id}" if isinstance(agent_id, str) and agent_id else "a distinct subagent actor"
-        return _context_output(
-            "SubagentStart",
-            f"Context governance isolation: use {actor_hint} with a distinct work unit and optional parent-work-unit. "
-            "Do not bind or read the main agent's work unit.",
-        )
-
-    agent_id = payload.get("agent_id") if event == "SubagentStop" else None
+    agent_id = payload.get("agent_id")
     if not isinstance(agent_id, str):
         agent_id = None
     context = _binding_context(root, session_id, agent_id)
-
+    if context is None:
+        return {"continue": True}
     if event == "SessionStart":
-        if context is None:
-            return _context_output(
-                "SessionStart",
-                f"Context governance session ID: {session_id}. No work unit is bound. "
-                "Select the intended actor-owned work unit, resume it explicitly, then bind this session; do not guess from another actor's state.",
-            )
         return _context_output("SessionStart", _checkpoint_text(context))
+    return {
+        "continue": True,
+        "systemMessage": (
+            f"Context governance recommends CHECKPOINT for work unit "
+            f"{context['binding']['work_unit_id']} before compaction. Compaction remains allowed."
+        ),
+    }
 
-    if event == "PreCompact":
-        detail = (
-            f" for work unit {context['binding']['work_unit_id']}"
-            if context is not None
-            else " after explicitly selecting the current work unit"
-        )
-        return {
-            "continue": True,
-            "systemMessage": f"Context governance recommends CHECKPOINT{detail} before compaction. Compaction remains allowed.",
-        }
-
-    if event in ("SubagentStop", "Stop"):
-        if context is None:
-            message = "No session-bound work unit was read; checkpoint manually if durable work remains."
-        else:
-            message = (
-                f"Context governance recommends CHECKPOINT or CLOSE for work unit "
-                f"{context['binding']['work_unit_id']}."
-            )
-        return {"continue": True, "systemMessage": message}
-
-    return {"continue": True}
 
 
 def main() -> int:

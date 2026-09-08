@@ -1,4 +1,7 @@
-# Task handoff — derived view, not authority
+# Exceptional handoff — optional recovery cues
+
+Use only for a real handoff/interruption. Skip fields already recoverable from
+canonical sources; link those sources instead. This is not a required report.
 
 - Current goal and authorization source:
 - Repository, worktree, branch, HEAD, and observed time:
@@ -11,7 +14,7 @@
 - Next bounded action:
 - Merge, cleanup, and publish authorization, each considered separately:
 
-Encode this information with the existing checkpoint `summary`, `findings`,
+When missing recovery context needs persistence, encode it with the existing checkpoint `summary`, `findings`,
 `failed_attempts`, `next_action`, and structured `state` fields under the
 `SESSION_HANDOFF` material event. Preserve inherited review/repair usage and send
 only fields that changed; `resume` supplies the full canonical recovery view.

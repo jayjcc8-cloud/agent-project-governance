@@ -203,7 +203,7 @@ class RepoKeelIdentityTests(unittest.TestCase):
             self.assertTrue(json.loads(resolved.stdout)["found"])
             self.assertEqual(self.runtime_bytes(project), before)
 
-    def test_skill_ids_and_historical_apg_contracts_are_preserved(self) -> None:
+    def test_skill_ids_and_historical_documents_remain_readable(self) -> None:
         self.assertEqual(
             {path.parent.name for path in (ROOT / "skills").glob("*/SKILL.md")},
             STABLE_SKILL_IDS,
@@ -211,7 +211,9 @@ class RepoKeelIdentityTests(unittest.TestCase):
         self.assertTrue(all(path.is_file() for path in HISTORICAL_APG_DOCS))
         self.assertTrue(
             all(
-                path.read_text(encoding="utf-8").startswith("# APG V1")
+                path.read_text(encoding="utf-8").startswith(
+                    "# RepoKeel V1" if path.name == "apg-v1-contract.md" else "# APG V1"
+                )
                 for path in HISTORICAL_APG_DOCS
             )
         )

@@ -1,6 +1,6 @@
 interface:
-  display_name: "Engineering Task Start"
-  short_description: "Refresh task and workspace facts before writing"
-  default_prompt: "Use $eng-task-start to inspect this task's current repository and handoff evidence."
+  display_name: "Task Knowledge Retrieval"
+  short_description: "Retrieve relevant knowledge once at task start"
+  default_prompt: "Use $eng-task-start to search once for knowledge relevant to this real task; continue if none exists."
 policy:
   allow_implicit_invocation: false

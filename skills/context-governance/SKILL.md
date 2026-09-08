@@ -1,11 +1,14 @@
 ---
 name: context-governance
-description: Checkpoint, resume, evaluate, bind, resolve bindings, migrate, and close actor-scoped AI work units without creating a second plan. Use for long-running coding tasks before compaction or handoff, after a crash or new session, when main agents and subagents need isolated runtime memory, when canonical local files or GitHub Issues/PRs may have changed, or when deciding whether to continue, delegate, converge, promote durable knowledge, or start a new work unit.
+description: Recover existing context only after real context loss, session interruption, handoff, or long-running task resume. Not for ordinary task start, progress, review, or completion.
 ---
 
 # Context Governance
 
-Keep runtime memory durable and isolated while leaving formal planning and execution to the project's existing authorities.
+Exceptional recovery only. Normal tasks use retrieval and conditional learning;
+they need no work unit, binding, checkpoint, evaluation, or close operation.
+Recover directly from canonical project sources when no prior runtime state is
+available. Do not create empty artifacts to satisfy this skill.
 
 ## Boundaries
 
@@ -19,7 +22,7 @@ Keep runtime memory durable and isolated while leaving formal planning and execu
 
 Use `scripts/work_unit.py` for every runtime read and write. Pass the project root explicitly.
 
-### Initialize
+### Initialize only for a real handoff needing missing context
 
 ```bash
 python3 scripts/work_unit.py init \
@@ -40,7 +43,7 @@ python3 scripts/work_unit.py init \
   --github-authority issue https://github.com/OWNER/REPO/issues/123
 ```
 
-Use a distinct work unit and actor for every subagent or reviewer. Add `--parent-work-unit` only as causal metadata.
+If a recovery record is actually needed, keep its actor isolated. Subagents and reviewers do not require work units merely because they exist.
 
 ### Checkpoint and resume
 
@@ -49,21 +52,9 @@ python3 scripts/work_unit.py checkpoint \
   --project-root /path/to/project \
   --work-unit feature-001 \
   --actor main \
-  --event WORK_UNIT_STARTED \
+  --event SESSION_HANDOFF \
   --summary "Contract tests pass; integration remains." \
-  --next-action "Run the pinned integration smoke test." \
-  --finding "Spec Kit tasks.md remains authoritative." \
-  --state HEAD=abc123 \
-  --state T1_REVIEW=PENDING
-
-python3 scripts/work_unit.py checkpoint \
-  --project-root /path/to/project \
-  --work-unit feature-001 \
-  --actor main \
-  --event REVIEW_VERDICT_CHANGED \
-  --clear-findings \
-  --state T1_REVIEW=PASS \
-  --state BLOCKING_FINDINGS=0
+  --next-action "Run the pinned integration smoke test."
 
 python3 scripts/work_unit.py resume \
   --project-root /path/to/project \
@@ -76,12 +67,10 @@ Reconcile changed authorities before continuing. Explicit resume and evaluate re
 
 `resume` returns a recovery contract with current authority evidence, transient git workspace identity, drift identities, completeness, a primary action, and non-persisted diagnostics. GitHub Issue/PR authorities in one work unit are fetched as one composite snapshot. When `completeness` is `complete` and `authority_verdict` is `matched`, treat the checkpoint summary, next action, findings, returned workspace identity, and returned authority evidence as the recovery evidence: do not reread local authorities or query GitHub again for facts already asserted there. Query separately only for material that is absent from both the checkpoint and returned evidence, such as full comments or Actions logs.
 
-Checkpoint updates are event-driven. Use `--event` only for an actual material
-change: work-unit start/close; authority, HEAD, or base change; product decision;
-finding open/close; review start/verdict/reviewer replacement; repair
-start/budget/completion; recovery/handoff; or merge/post-merge progress. The
-omitted-event default remains `SESSION_HANDOFF` only for compatibility with older
-callers; it is not an ordinary-progress event.
+Checkpoint only for an actual recovery/handoff need. Do not mirror task start,
+HEAD changes, review verdicts, repair progress, merge, or completion into runtime
+state. Existing event names remain accepted for older callers. Use links to the
+canonical Issue/PR/CI instead of duplicating their state.
 
 The first checkpoint requires `--summary` and `--next-action`. Later checkpoints
 inherit omitted summary, next action, findings, failed attempts, and structured
@@ -104,17 +93,16 @@ before a writer, task, or session handoff. Keep the derived record short:
 - Put known uncommitted work, verified facts, the original blocker, and review
   rounds already used in `findings` or `failed_attempts` as appropriate.
 - Put exactly one next bounded action in `next_action`.
-- Record current machine-readable fields such as HEAD, review verdict, open
-  finding count, and repair usage with `--state`, and label the update
-  `--event SESSION_HANDOFF`.
+- Use optional `--state` fields only for missing recovery context, and label the
+  update `--event SESSION_HANDOFF`. Do not duplicate current Issue/PR/CI facts.
 
-A new session must resume the same actor-owned work unit and independently
+When resuming an interrupted task with an existing work unit, use that unit and
 recheck mutable workspace facts before writing. It must not reset review or
 repair budgets. A complete, fresh recovery contract should not trigger duplicate
 queries for evidence it already contains. A checkpoint is derived memory, not an
 authority, writer lock, task database, or proof that delivery has passed.
 
-### Evaluate the next governance action
+### Optional recovery diagnostics
 
 ```bash
 python3 scripts/work_unit.py evaluate \
@@ -129,7 +117,7 @@ Treat `primary_action` and `recommendations` as advisory. Read [references/decis
 
 ### Bind a Codex session
 
-When a SessionStart hook supplies a session ID, bind it only after selecting the correct work unit:
+Only when an actual recovery needs hook transport, optionally bind the selected work unit:
 
 ```bash
 python3 scripts/work_unit.py bind \
@@ -149,9 +137,9 @@ python3 scripts/work_unit.py resolve-binding \
   --session "$CODEX_THREAD_ID"
 ```
 
-Use the returned work-unit and actor IDs with `resume --strict`. Exit `1` means the current session is not bound, so recover directly from authorities or bind it explicitly. Never substitute a delegated source task ID for the current `CODEX_THREAD_ID`, never scan binding files, and never fall back from a subagent's `session + agent-id` key to a main-agent session key.
+Use the returned work-unit and actor IDs with `resume --strict`. Exit `1` means the current session is not bound; recover directly from authorities. It does not require initialization or binding. Never substitute a delegated source task ID for the current `CODEX_THREAD_ID`, never scan binding files, and never fall back from a subagent's `session + agent-id` key to a main-agent session key.
 
-### Migrate or close
+### Explicit compatibility operations, not task completion
 
 Use `migrate` for an explicit v0.1/v0.2/v0.3 → v0.4 upgrade. `checkpoint` also upgrades legacy state after validation and promotes legacy GitHub digests to the composite projection. Use `close --summary ...` only after a current checkpoint; close refuses authority drift and removes matching session bindings.
 
@@ -159,3 +147,9 @@ Closing a work unit closes local derived memory only. It does not mean the
 product was accepted, CI passed, or a pull request was merged.
 
 Read [references/state-schema.md](references/state-schema.md) only when changing the script, adding a consumer, or diagnosing incompatible state.
+
+## Do not use when
+
+- A normal task starts, progresses, receives review, or completes without interruption.
+- The only reason is that a main agent, subagent, or reviewer exists.
+- Existing Issue/PR/Git/CI facts already answer the question.

@@ -1,90 +1,78 @@
-# APG V1 core contract
+# RepoKeel V1 core contract
 
-## Product role
+This canonical contract supersedes the pre-shrink APG V1 process for future tasks.
+The filename and existing readers remain compatible. Historical records are not
+rewritten or migrated. Decision: [EA #176 three-task closeout](https://github.com/jayjcc8-cloud/ea-quant/issues/176#issuecomment-5578482298), `REPOKEEL_DECISION=SHRINK`.
 
-> APG is the execution-continuity and context-support layer for an agent working on real development tasks. It is not the project's source of truth, technical approver, drift detector, or knowledge-governance system.
+## Core loop
 
-Current product status:
+`RETRIEVE -> EXECUTE -> CONDITIONAL_LEARN`
 
-```text
-APG_V1_ACCEPTANCE=PENDING_THREE_REAL_PRODUCT_TASKS
-```
+A normal task has exactly two required RepoKeel actions:
 
-Per-task `APG_ACCEPTANCE` evidence does not change this global status. A later V1 acceptance decision requires the completed three-task evidence window and separate authorization.
+1. At real task start, search once for knowledge directly relevant to the current
+   contract, known problem, decision, solution, or reusable method. Use the
+   project's approved knowledge route. Do not scan the whole knowledge base.
+   Report only `RETRIEVAL_USED=YES|NO` and
+   `REUSED_KNOWLEDGE=<references or NONE>` in the existing task conversation.
+   No relevant hit means `REUSED_KNOWLEDGE=NONE`; continue immediately.
+2. Once the real task is accepted/completed, check `NEW_KNOWLEDGE=YES|NO` and
+   `UPDATE_NEEDED=YES|NO`. Only `NEW_KNOWLEDGE=YES` or `UPDATE_NEEDED=YES` permits
+   a knowledge write/update through the user's authorized knowledge route.
+   Otherwise `KNOWLEDGE_WRITE=SKIPPED` and stop. No empty or routine summary.
 
-Repository state and the project's accepted Spec, Issue, PR, Git, and CI artifacts remain authoritative for product work and acceptance. APG may retain identifiers, hashes, a concise checkpoint, and current workspace observations. It does not replace or silently reinterpret those authorities.
+Actual product execution and acceptance belong to the project, not RepoKeel.
+These checks are brief task observations, not separate files, checkpoint commands,
+reports, or proof-of-compliance records. Do not copy Issue/PR/Git/CI facts.
+Refine, merge, promote, or convert knowledge to a method, skill, or spec only
+when actual reuse in a later real task provides evidence and the project permits it.
 
-## V1 core capabilities
-
-APG V1 has four core capabilities:
-
-1. **Context and task continuity.** Recover the current goal, completed work, verified facts, known blockers, and one next action without requiring a transcript replay or a second task plan.
-2. **Task-source realignment.** Recheck declared task sources at explicit recovery points and direct the agent to reconcile when the current source no longer matches its checkpoint. APG does not decide the new product requirement or approve the resulting technical choice.
-3. **Worktree boundary.** Report the current checkout, branch, HEAD, cleanliness, target branch occupancy, and known write boundaries without claiming a writer lock or changing the workspace.
-4. **Recovery and budget continuity.** Preserve enough bounded handoff context—including used review or repair budget when relevant—to resume from the next useful action instead of repeating completed analysis or resetting an exhausted budget.
-
-These capabilities are advisory. Their output is evidence for the agent and user; it is not product acceptance.
-
-## Authority and acceptance boundary
+## Authority
 
 | Concern | Authority |
 |---|---|
-| What the product should do | Accepted Spec, Issue, or equivalent project task source |
-| What code and history exist | Repository and Git |
-| What was proposed and reviewed | PR and review evidence |
-| What passed required checks | CI and project-defined validation |
-| How the agent continues the current task | APG recovery and boundary evidence |
-| What was learned for later reuse | User-approved knowledge workflow outside APG runtime state |
+| TASK AUTHORITY | GitHub Issue / explicit user task |
+| CODE AUTHORITY | Git |
+| DELIVERY AUTHORITY | PR + main |
+| VERIFICATION | CI / explicit acceptance evidence |
+| REPOKEEL AUTHORITY | reusable development knowledge only |
 
-`APG_ACCEPTANCE=PASS` requires evidence from a real product task that:
+RepoKeel may reference these sources. It does not own product requirements,
+Issue/PR lifecycle, risk approval, release status, CI status, or product acceptance.
+It must not maintain a second permanent task lifecycle, evidence package, context
+manifest, completion report, or knowledge report. Existing evidence is referenced,
+not copied into a second source of truth.
 
-- APG solved or avoided at least one specific continuity or context problem; and
-- APG did not become a blocker to product development.
+## Exceptional recovery
 
-A successful command, hook, checkpoint, resume, timing threshold, or injected source-change test is insufficient by itself. `APG_IMPACT` must name the product or execution consequence that actually occurred. Statements such as “improved governance quality” or “increased consistency” are not acceptable evidence.
+Recovery is event-driven, only for actual context loss, session interruption,
+handoff, or resumption of a long-running task. Ordinary continuation, task start,
+review verdict, HEAD change, and task completion do not require recovery records.
+For a normal uninterrupted task: `RECOVERY_USED=NO` and
+`RECOVERY_ARTIFACT_REQUIRED=NO`; neither requires an extra report.
 
-## Non-goals
+Use `context-governance` only for such an event. Existing actor-owned checkpoints
+can be read using the existing CLI. When needed for a real handoff, record only
+missing context and links to canonical evidence. No task must initialize, bind,
+checkpoint, evaluate, validate, or close a work unit just to use RepoKeel.
+An unbound recovery returns to project authorities; do not create empty recovery
+state. Optional hooks run only on resume/context loss or compaction of bound work,
+never normal startup, subagent lifecycle, or stop.
 
-APG V1 does not:
+## Responsibilities and compatibility
 
-- become a project fact source or duplicate Spec, Issue, PR, Git, or CI state;
-- approve technical conclusions or product acceptance;
-- assign product risk levels;
-- provide general drift detection or make ADG/drift governance a success condition;
-- require multi-agent review for every task;
-- continuously curate Obsidian or automatically promote experience into a method, Skill, Spec, or other authority;
-- add another planner, task database, hook bus, checkpoint store, orchestration layer, or automation framework.
+The only V1 responsibilities are Retrieve, Learn, Update, and exceptional Recover.
+Everything else is out of scope as a RepoKeel obligation. The five existing skill
+IDs and explicit compatibility CLI remain available, not a mandatory chain.
+Bootstrap and delivery helpers defer to project-owned rules; they add no mandatory
+steps, reviewer chain, acceptance layer, or state store.
 
-ADG is not part of the active APG V1 product flow. Existing source-change checks and historical drift experiments may remain for compatibility and evidence, but they do not expand APG into drift governance.
+Old knowledge and runtime records remain readable without migration. Existing
+CLI flags, schema versions, and state readers are retained for explicit recovery;
+new ordinary tasks produce no runtime state. `.agent-runtime/` is derived recovery
+memory, not the knowledge base or project authority.
 
-## Existing workflow classification
-
-The 0.5 package retains its five existing Skill entry points. V1 does not require deleting them or running them as a chain.
-
-| Existing entry point | V1 classification |
-|---|---|
-| `context-governance` | Core carrier for continuity, explicit source realignment, recovery, and bounded handoff state |
-| `eng-task-start` | Auxiliary intake helper that can supply current task-source and worktree evidence |
-| `project-bootstrap` | Auxiliary, explicit setup and compatibility helper |
-| `eng-bounded-delivery` | Auxiliary, explicit delivery guidance; not a V1 core capability |
-| `eng-verified-closeout` | Auxiliary, explicit verification guidance; not a V1 core capability |
-| Advisory hooks | Optional transport for already-bound recovery context; not a V1 acceptance condition |
-
-Historical recovery-time comparisons, injected authority-change matrices, compatibility smokes, and the five-workflow 0.5 integration remain useful mechanism evidence. They are not the APG V1 product definition or its primary acceptance criteria.
-
-## Knowledge boundary
-
-Knowledge reuse is measured separately from APG acceptance:
-
-- At task start, Codex performs a **Retrieval Checkpoint** using the project's approved knowledge route.
-- After product acceptance, Codex performs a **Learning Checkpoint**.
-- Codex may write to the Obsidian `收件箱` only when `NEW_KNOWLEDGE=YES` or `UPDATE_NEEDED=YES`, and only under the user's separate repository and knowledge-base authorization.
-- APG does not continuously organize Obsidian. A low-frequency APG review may be started separately only after repeated reuse, a knowledge conflict, or a proposal to promote knowledge into a method, Skill, or Spec.
-
-APG stores no knowledge-base contents in `.agent-runtime/` and does not treat a knowledge write as part of product acceptance.
-
-## Initial evidence window
-
-Use [the three-real-task value evaluation](apg-v1-three-task-value-evaluation.md) for the initial observation window. The three tasks should collectively cover ordinary continuation, a real task-source change, and a naturally occurring interruption or new-session recovery. Do not manufacture a failure solely to satisfy the matrix.
-
-After the window, summarize which APG mechanisms demonstrated product value and which did not. This evidence window does not authorize deleting auxiliary capabilities, adding automation, or changing the V1 contract; any such decision is separate work requiring explicit authorization.
+No new hook bus, schema, database, router, coordinator, telemetry, scoring,
+knowledge graph, workflow engine, or automatic knowledge promotion is part of V1.
+The completed three-task pilot is decision evidence, not a recurring evaluation
+requirement. Do not repeat the pilot or generate per-task APG acceptance reports.

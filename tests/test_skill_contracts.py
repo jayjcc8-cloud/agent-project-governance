@@ -79,6 +79,29 @@ class SkillContractTests(unittest.TestCase):
             self.assertIn(phrase, normalized)
         self.assertIn("REPLACEMENT_BLOCKER_VERIFICATION", review)
 
+    def test_normal_task_reuses_knowledge_without_recovery_or_duplicate_write(self) -> None:
+        start = (SKILLS / "eng-task-start/SKILL.md").read_text()
+        close = (SKILLS / "eng-verified-closeout/SKILL.md").read_text()
+        core = (ROOT / "docs/apg-v1-contract.md").read_text()
+        for phrase in ("RETRIEVAL_USED=YES|NO", "REUSED_KNOWLEDGE=<references or NONE>"):
+            self.assertIn(phrase, start)
+        self.assertIn("REUSED_KNOWLEDGE=NONE", start)
+        self.assertIn("KNOWLEDGE_WRITE=SKIPPED", close)
+        self.assertIn("RECOVERY_ARTIFACT_REQUIRED=NO", core)
+        for template in ("AGENTS.md", "AGENTS-existing-project.md"):
+            text = (SKILLS / "project-bootstrap/assets" / template).read_text()
+            self.assertNotIn("Give every main agent", text)
+            self.assertIn("only", text)
+            self.assertIn("NEW_KNOWLEDGE=YES", text)
+
+    def test_learning_is_conditional_after_acceptance_and_promotion_requires_reuse(self) -> None:
+        text = (SKILLS / "eng-verified-closeout/SKILL.md").read_text()
+        self.assertIn("after task acceptance", text)
+        self.assertIn("NEW_KNOWLEDGE=YES", text)
+        self.assertIn("UPDATE_NEEDED=YES", text)
+        self.assertIn("actual reuse", text)
+        self.assertIn("Do not create a completion report", text)
+
     def test_every_skill_local_markdown_link_resolves(self) -> None:
         for skill in SKILLS.glob("*/SKILL.md"):
             for relative in re.findall(r"\]\(([^)]+)\)", skill.read_text(encoding="utf-8")):

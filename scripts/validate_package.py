@@ -31,7 +31,7 @@ HOOK_COMMAND = (
     '{ printf "%s\\n" "$output"; exit 0; }; fi; '
     'printf "%s\\n" "$fallback"; exit 0\''
 )
-HOOK_EVENTS = {"SessionStart", "PreCompact", "SubagentStart", "SubagentStop", "Stop"}
+HOOK_EVENTS = {"SessionStart", "PreCompact"}
 APPROVED_SKILLS = (
     "context-governance",
     "eng-bounded-delivery",
